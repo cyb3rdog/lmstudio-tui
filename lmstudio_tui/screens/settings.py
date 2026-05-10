@@ -110,59 +110,65 @@ class Settings(Widget):
             return lv.highlighted_child.name
         return None
 
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        btn = event.button.id
-        if btn == "btn-add":
-            result = await self.app.push_screen_wait(ServerFormModal())
-            if result:
-                self.app.config.servers.append(result)
-                self.app.server_registry.add_server(result)
-                save_config(self.app.config)
-                self._load_server_list()
-                self.app.call_later(lambda: self.app.server_registry.connect(result.name))
+    # ── sync dispatcher ───────────────────────────────────────────────────────
 
-        elif btn == "btn-edit":
-            name = self._selected_server_name()
-            if not name:
-                return
-            existing = next((s for s in self.app.config.servers if s.name == name), None)
-            result = await self.app.push_screen_wait(ServerFormModal(existing))
-            if result:
-                for i, s in enumerate(self.app.config.servers):
-                    if s.name == name:
-                        self.app.config.servers[i] = result
-                        break
-                save_config(self.app.config)
-                self._load_server_list()
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        match event.button.id:
+            case "btn-add":
+                self._add_server()
+            case "btn-edit":
+                self._edit_server()
+            case "btn-remove":
+                self._remove_server()
+            case "btn-test":
+                name = self._selected_server_name()
+                if name:
+                    self._test_connection(name)
+                else:
+                    self.notify("Select a server first", severity="warning")
+            case "btn-save-prefs":
+                self._save_prefs()
 
-        elif btn == "btn-remove":
-            name = self._selected_server_name()
-            if not name:
-                return
-            confirmed = await self.app.push_screen_wait(ConfirmModal(f"Remove server '{name}'?"))
-            if confirmed:
-                self.app.config.servers = [s for s in self.app.config.servers if s.name != name]
-                self.app.server_registry.remove_server(name)
-                save_config(self.app.config)
-                self._load_server_list()
+    # ── @work action methods (worker context allows push_screen_wait) ─────────
 
-        elif btn == "btn-test":
-            name = self._selected_server_name()
-            if name:
-                self._test_connection(name)
-
-        elif btn == "btn-save-prefs":
-            try:
-                poll = float(self.query_one("#inp-poll", Input).value or "3.0")
-                self.app.config.ui.poll_interval_s = poll
-            except ValueError:
-                pass
-            self.app.config.benchmark.export_dir = (
-                self.query_one("#inp-export-dir", Input).value.strip()
-                or "~/.lmstudio-tui/benchmarks"
-            )
+    @work
+    async def _add_server(self) -> None:
+        result = await self.app.push_screen_wait(ServerFormModal())
+        if result:
+            self.app.config.servers.append(result)
+            self.app.server_registry.add_server(result)
             save_config(self.app.config)
-            self.notify("Preferences saved", severity="information")
+            self._load_server_list()
+            self.app.run_worker(self.app.server_registry.connect(result.name), exclusive=False)
+
+    @work
+    async def _edit_server(self) -> None:
+        name = self._selected_server_name()
+        if not name:
+            self.notify("Select a server first", severity="warning")
+            return
+        existing = next((s for s in self.app.config.servers if s.name == name), None)
+        result = await self.app.push_screen_wait(ServerFormModal(existing))
+        if result:
+            for i, s in enumerate(self.app.config.servers):
+                if s.name == name:
+                    self.app.config.servers[i] = result
+                    break
+            save_config(self.app.config)
+            self._load_server_list()
+
+    @work
+    async def _remove_server(self) -> None:
+        name = self._selected_server_name()
+        if not name:
+            self.notify("Select a server first", severity="warning")
+            return
+        confirmed = await self.app.push_screen_wait(ConfirmModal(f"Remove server '{name}'?"))
+        if confirmed:
+            self.app.config.servers = [s for s in self.app.config.servers if s.name != name]
+            self.app.server_registry.remove_server(name)
+            save_config(self.app.config)
+            self._load_server_list()
 
     @work
     async def _test_connection(self, name: str) -> None:
@@ -179,3 +185,17 @@ class Settings(Widget):
             result_label.update(f"  [green]✓ Connected  {ms:.0f}ms[/green]")
         except Exception as e:
             result_label.update(f"  [red]✗ {e}[/red]")
+
+    def _save_prefs(self) -> None:
+        try:
+            poll = float(self.query_one("#inp-poll", Input).value or "3.0")
+            self.app.config.ui.poll_interval_s = poll
+        except ValueError:
+            self.notify("Poll interval must be a number", severity="error")
+            return
+        self.app.config.benchmark.export_dir = (
+            self.query_one("#inp-export-dir", Input).value.strip()
+            or "~/.lmstudio-tui/benchmarks"
+        )
+        save_config(self.app.config)
+        self.notify("Preferences saved", severity="information")

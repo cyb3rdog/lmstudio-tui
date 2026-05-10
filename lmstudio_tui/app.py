@@ -131,10 +131,17 @@ class LMStudioApp(App[None]):
 
     # ── navigation ────────────────────────────────────────────────────────────
 
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.list_view.id == "nav-list" and event.item.name:
+    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        """Switch screens immediately as the highlight moves (arrow keys)."""
+        if event.list_view.id == "nav-list" and event.item and event.item.name:
             self._switch_to(event.item.name)
-            # Move focus into content area when sidebar is hidden (portrait mode)
+            if not self.sidebar_visible:
+                self._focus_content()
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Enter / Space: move focus into content area."""
+        if event.list_view.id == "nav-list" and event.item and event.item.name:
+            self._switch_to(event.item.name)
             if not self.sidebar_visible:
                 self._focus_content()
 

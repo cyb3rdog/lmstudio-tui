@@ -30,44 +30,51 @@ class MetricPanel(Widget):
     def __init__(self, model_id: str, **kwargs) -> None:
         super().__init__(**kwargs)
         self._model_id = model_id
+        # Widget refs stored to avoid duplicate-ID issues across multiple panels
+        self._tps_val: Static | None = None
+        self._tps_spark: Sparkline | None = None
+        self._ttft_val: Static | None = None
+        self._ttft_spark: Sparkline | None = None
+        self._vram_lbl: Label | None = None
+        self._vram_bar: ProgressBar | None = None
 
     def compose(self) -> ComposeResult:
         yield Label(f"  {self._model_id}", classes="mp-title")
-        yield Static("  TPS  —", id="mp-tps-val")
-        yield Sparkline(data=[], id="mp-tps-spark")
-        yield Static("  TTFT —", id="mp-ttft-val")
-        yield Sparkline(data=[], id="mp-ttft-spark")
-        yield Label("  VRAM", id="mp-vram-lbl")
-        yield ProgressBar(total=100, id="mp-vram-bar", show_eta=False)
+
+        self._tps_val = Static("  TPS  —")
+        self._tps_spark = Sparkline(data=[])
+        self._ttft_val = Static("  TTFT —")
+        self._ttft_spark = Sparkline(data=[])
+        self._vram_lbl = Label("  VRAM")
+        self._vram_bar = ProgressBar(total=100, show_eta=False)
+
+        yield self._tps_val
+        yield self._tps_spark
+        yield self._ttft_val
+        yield self._ttft_spark
+        yield self._vram_lbl
+        yield self._vram_bar
 
     def watch_tps_data(self, data: list[float]) -> None:
-        try:
-            self.query_one("#mp-tps-spark", Sparkline).data = data
+        if self._tps_spark is not None:
+            self._tps_spark.data = data
+        if self._tps_val is not None:
             val = format_tps(data[-1]) if data else "—"
-            self.query_one("#mp-tps-val", Static).update(f"  TPS  {val}")
-        except Exception:
-            pass
+            self._tps_val.update(f"  TPS  {val}")
 
     def watch_ttft_data(self, data: list[float]) -> None:
-        try:
-            self.query_one("#mp-ttft-spark", Sparkline).data = data
+        if self._ttft_spark is not None:
+            self._ttft_spark.data = data
+        if self._ttft_val is not None:
             val = format_ms(data[-1]) if data else "—"
-            self.query_one("#mp-ttft-val", Static).update(f"  TTFT {val}")
-        except Exception:
-            pass
+            self._ttft_val.update(f"  TTFT {val}")
 
     def watch_vram_pct(self, pct: float) -> None:
-        try:
-            self.query_one("#mp-vram-bar", ProgressBar).update(progress=pct)
-        except Exception:
-            pass
+        if self._vram_bar is not None:
+            self._vram_bar.update(progress=pct)
 
     def set_vram(self, used_gb: float, total_gb: float) -> None:
         if total_gb > 0:
             self.vram_pct = min(100.0, (used_gb / total_gb) * 100)
-            try:
-                self.query_one("#mp-vram-lbl", Label).update(
-                    f"  VRAM  {used_gb:.1f} / {total_gb:.1f} GB"
-                )
-            except Exception:
-                pass
+            if self._vram_lbl is not None:
+                self._vram_lbl.update(f"  VRAM  {used_gb:.1f} / {total_gb:.1f} GB")

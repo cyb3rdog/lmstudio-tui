@@ -62,6 +62,21 @@ class ModelManager(Widget):
         if self._dl_timer:
             self._dl_timer.stop()
 
+    # ── sync dispatcher ───────────────────────────────────────────────────────
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        match event.button.id:
+            case "btn-load":
+                self.action_load_model()
+            case "btn-unload":
+                self.action_unload_model()
+            case "btn-download":
+                self.action_download_model()
+            case "btn-refresh":
+                self.action_refresh()
+
+    # ── actions (all decorated with @work so push_screen_wait is safe) ────────
+
     @work(exclusive=True)
     async def action_refresh(self) -> None:
         client = self.app.server_registry.active_client
@@ -80,6 +95,38 @@ class ModelManager(Widget):
         except Exception as e:
             self.notify(str(e), severity="error")
 
+    @work
+    async def action_load_model(self) -> None:
+        model_id = self._focused_model_id()
+        if not model_id:
+            self.notify("Select a model row first", severity="warning")
+            return
+        result = await self.app.push_screen_wait(ModelLoadModal(model_id))
+        if result:
+            self._do_load(result)
+
+    @work
+    async def action_unload_model(self) -> None:
+        model_id = self._focused_model_id()
+        if not model_id:
+            self.notify("Select a model row first", severity="warning")
+            return
+        confirmed = await self.app.push_screen_wait(
+            ConfirmModal(f"Unload '{model_id}'?", "Unload Model")
+        )
+        if confirmed:
+            self._do_unload(model_id)
+
+    @work
+    async def action_download_model(self) -> None:
+        model_id = self._focused_model_id()
+        if not model_id:
+            self.notify("Select a model row first", severity="warning")
+            return
+        self._do_download(model_id)
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+
     def _focused_model_id(self) -> str | None:
         table = self.query_one("#models-table", DataTable)
         if table.cursor_row < 0:
@@ -89,15 +136,6 @@ class ModelManager(Widget):
             return str(cell)
         except Exception:
             return None
-
-    async def action_load_model(self) -> None:
-        model_id = self._focused_model_id()
-        if not model_id:
-            self.notify("Select a model row first", severity="warning")
-            return
-        result = await self.app.push_screen_wait(ModelLoadModal(model_id))
-        if result:
-            self._do_load(result)
 
     @work
     async def _do_load(self, request) -> None:
@@ -112,41 +150,25 @@ class ModelManager(Widget):
         except Exception as e:
             self.notify(str(e), severity="error")
 
-    async def action_unload_model(self) -> None:
-        model_id = self._focused_model_id()
-        if not model_id:
-            self.notify("Select a model row first", severity="warning")
-            return
-        confirmed = await self.app.push_screen_wait(
-            ConfirmModal(f"Unload '{model_id}'?", "Unload Model")
-        )
-        if confirmed:
-            self._do_unload(model_id)
-
     @work
     async def _do_unload(self, model_id: str) -> None:
         client = self.app.server_registry.active_client
         if not client:
             return
         try:
-            # Find instance_id from cached models
             models = await client.list_models()
-            instance_id = next((m.instance_id for m in models if m.id == model_id and m.instance_id), None)
+            instance_id = next(
+                (m.instance_id for m in models if m.id == model_id and m.instance_id),
+                None,
+            )
             if not instance_id:
-                self.notify(f"Model {model_id} not loaded or no instance_id", severity="warning")
+                self.notify(f"No loaded instance found for {model_id}", severity="warning")
                 return
             await client.unload_model(instance_id)
             self.notify(f"Unloaded {model_id}", severity="information")
             self.action_refresh()
         except Exception as e:
             self.notify(str(e), severity="error")
-
-    async def action_download_model(self) -> None:
-        model_id = self._focused_model_id()
-        if not model_id:
-            self.notify("Select a model row first", severity="warning")
-            return
-        self._do_download(model_id)
 
     @work
     async def _do_download(self, model_id: str) -> None:
@@ -184,13 +206,3 @@ class ModelManager(Widget):
             self.query_one("#dl-bar").add_class("-hidden")
             self.notify(f"Downloaded {status.model}", severity="information")
             self.action_refresh()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        actions = {
-            "btn-load": self.action_load_model,
-            "btn-unload": self.action_unload_model,
-            "btn-download": self.action_download_model,
-            "btn-refresh": self.action_refresh,
-        }
-        if event.button.id in actions:
-            self.app.call_later(actions[event.button.id])

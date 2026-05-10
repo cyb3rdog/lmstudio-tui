@@ -30,7 +30,7 @@ class ModelLoadModal(ModalScreen[LoadRequest | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Label(f"[bold]Load Model[/bold]")
+            yield Label("[bold]Load Model[/bold]")
             yield Label(f"[dim]{self._model_id}[/dim]")
             with Collapsible(title="Advanced options", collapsed=True):
                 yield Label("GPU layers (-1 = full offload)")
@@ -45,8 +45,12 @@ class ModelLoadModal(ModalScreen[LoadRequest | None]):
         if event.button.id == "btn-load":
             gpu_raw = self.query_one("#inp-gpu-layers", Input).value.strip()
             ctx_raw = self.query_one("#inp-ctx", Input).value.strip()
-            gpu_layers = int(gpu_raw) if gpu_raw else None
-            ctx = int(ctx_raw) if ctx_raw else None
+            try:
+                gpu_layers = int(gpu_raw) if gpu_raw else None
+                ctx = int(ctx_raw) if ctx_raw else None
+            except ValueError:
+                self.notify("GPU layers and context must be integers", severity="error")
+                return
             self.dismiss(LoadRequest(model=self._model_id, gpu_layers=gpu_layers, context_length=ctx))
         else:
             self.dismiss(None)

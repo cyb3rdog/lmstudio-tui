@@ -8,7 +8,7 @@ from textual.widgets import Button, Input, Label
 from ...config.models import ServerConfig
 
 
-class OnboardingModal(ModalScreen[ServerConfig]):
+class OnboardingModal(ModalScreen[ServerConfig | None]):
     """First-run welcome dialog. Collects endpoint + optional API key."""
 
     DEFAULT_CSS = """
@@ -40,8 +40,12 @@ class OnboardingModal(ModalScreen[ServerConfig]):
             yield Input(placeholder="lms_...", password=True, id="inp-apikey")
             with Horizontal():
                 yield Button("Connect", variant="primary", id="btn-connect")
+                yield Button("Skip", id="btn-skip")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
-        api_key = self.query_one("#inp-apikey", Input).value.strip()
-        self.dismiss(ServerConfig(name="default", endpoint=endpoint, api_key=api_key))
+        if event.button.id == "btn-connect":
+            endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
+            api_key = self.query_one("#inp-apikey", Input).value.strip()
+            self.dismiss(ServerConfig(name="default", endpoint=endpoint, api_key=api_key))
+        else:
+            self.dismiss(None)

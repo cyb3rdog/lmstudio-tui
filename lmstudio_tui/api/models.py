@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelState(str, Enum):
@@ -13,6 +13,8 @@ class ModelState(str, Enum):
 
 
 class ModelInfo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: str
     object: str = "model"
     owned_by: str = ""
@@ -30,9 +32,23 @@ class ModelInfo(BaseModel):
     top_p: float | None = None
     repeat_penalty: float | None = None
 
+    @field_validator("state", mode="before")
+    @classmethod
+    def _coerce_state(cls, v: object) -> object:
+        """Accept unknown state strings gracefully instead of crashing."""
+        if v is None:
+            return None
+        try:
+            return ModelState(str(v).lower())
+        except ValueError:
+            return None
+
     @property
     def is_loaded(self) -> bool:
-        return self.state == ModelState.LOADED
+        if self.state is not None:
+            return self.state == ModelState.LOADED
+        # Fallback: if state is absent but instance_id is present, model is loaded
+        return self.instance_id is not None
 
 
 class ModelsResponse(BaseModel):

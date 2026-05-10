@@ -107,7 +107,7 @@ class LMStudioClient:
     async def ping(self) -> float:
         """Return round-trip latency in ms, or raise ConnectionError."""
         start = time.perf_counter()
-        await self._get("/v1/models")
+        await self._get("/api/v1/models")
         return (time.perf_counter() - start) * 1000
 
     # ── models ────────────────────────────────────────────────────────────────
