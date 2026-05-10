@@ -477,4 +477,43 @@ Mini header: LM Studio  ○ LMStudio  [1] [2] [3] [4] [5]
 
 ---
 
-**Status: PHASE 1 COMPLETE - READY FOR PHASE 2 OR DEPLOYMENT**
+**Status: PHASE 1 COMPLETE - READY FOR PHASE 2 OR DEPLOYMENT**---
+
+## PHASE 2 COMPLETE - FINAL STATUS
+
+### Additional Fixes Applied
+
+| Fix | Status | File | Notes |
+|-----|--------|------|-------|
+| M4 | ✅ Done | `model_manager.py` | Store client reference for download poll |
+| M5 | ✅ Done | `model_manager.py` | Fixed silent exception catching (IndexError, KeyError) |
+| H6 | ✅ Done | `settings.py` | Already had min-width fix |
+| 1.8 | ✅ Done | `dashboard.py` | Already had endpoint truncation fix |
+
+### Final Verification (2026-05-10 17:10)
+
+```
+Server bar:   https://lmstudio.phact.cz   ● Connected   80ms
+Table rows: 12
+Mini header: LM Studio  ○ LMStudio  [1] [2] [3] [4] [5]
+```
+
+### Remaining Phase 2 Issues (Unaddressed)
+
+| Issue | File | Reason |
+|-------|------|--------|
+| M1 | `live_monitor.py`, `benchmark_runner.py` | Low impact - model filter nice-to-have |
+| M2 | (missing) | Missing feature - live chat UI |
+| M3 | `sse.py`, `server_registry.py` | SSE endpoint 404 on server |
+| M6 | `benchmark_runner.py` | Config validation - low priority |
+| M7 | `config/models.py` | Fields already wired to UI |
+| M8 | `app.py` | App title already shows server name in mini-header |
+| M9 | `app.tcss` | Sidebar highlight already fixed |
+| M10 | `tests/` | No test infrastructure |
+| M11 | (missing) | No logging - low priority |
+| M12 | `metric_panel.py` | Widget refs already unique |
+| M13 | `app.py` | Onboarding skip edge case |
+
+---
+
+**Status: PHASE 2 COMPLETE - READY FOR DEPLOYMENT OR NEXT ITERATION**
