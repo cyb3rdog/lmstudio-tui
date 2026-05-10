@@ -1,8 +1,8 @@
 # LM Studio TUI - Roadmap
 
-## Current Status: ✅ Phase 1, 2 & 3A/3B Complete
+## Current Status: ✅ Phase 1, 2, 3A, 3B & 3C Complete
 
-All critical, high, and medium-priority issues resolved. Core UX, chat, and test suite implemented.
+All planned features have been implemented. Core UX, chat, benchmark, and test suite are production-ready.
 
 ---
 
@@ -10,13 +10,13 @@ All critical, high, and medium-priority issues resolved. Core UX, chat, and test
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Nav-1: Tab cycles sidebar ↔ content | ✅ | Native Textual Tab order; Escape returns to nav |
-| Nav-2: Focus indicators on all widgets | ✅ | CSS `:focus` rings on Button, DataTable, Select, ListView |
-| Nav-3: Keyboard shortcuts overlay (`?`) | ✅ | `ShortcutsModal` via `?` key |
-| Nav-4: Consistent Escape → nav | ✅ | `action_focus_nav` always returns to sidebar |
-| Mobile-1: Portrait collapsible sidebar | ✅ | Auto-collapse < 70 cols; `Ctrl+B` toggle |
-| Mobile-2: Mini-header with screen name | ✅ | Updates on every screen switch |
-| Mobile-3: Number keys 1-6 always work | ✅ | Regardless of sidebar state |
+| Nav-1 | ✅ | Tab cycles sidebar ↔ content via Textual DOM order |
+| Nav-2 | ✅ | Focus rings on Button, DataTable, Select, ListView |
+| Nav-3 | ✅ | ShortcutsModal via `?` key binding |
+| Nav-4 | ✅ | Escape always returns to nav (smart toggle behavior) |
+| Mobile-1 | ✅ | Sidebar auto-collapse < 70 cols; `Ctrl+B` toggle |
+| Mobile-2 | ✅ | Mini-header shows server state + screen name |
+| Mobile-3 | ✅ | Number keys 1-6 work regardless of sidebar state |
 
 ---
 
@@ -24,44 +24,43 @@ All critical, high, and medium-priority issues resolved. Core UX, chat, and test
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Chat-1: Chat screen with input/output | ✅ | `screens/chat.py` |
-| Chat-2: Streaming response display | ✅ | Live token-by-token preview via `chat_completion_stream` |
-| Chat-3: Model selector | ✅ | Select widget, re-populated on screen show |
-| Chat-4: Conversation history | ✅ | Full history sent on each request; RichLog display |
-| Chat-5: Stop streaming | ✅ | Abort via Stop button (`asyncio.Event`) |
-| Chat-6: Clear conversation | ✅ | `Ctrl+L` |
+| Chat-1 | ✅ | `screens/chat.py` with streaming via `agentic_inference` |
+| Chat-2 | ✅ | Live token preview updates during streaming |
+| Chat-3 | ✅ | Model selector (Select widget, re-populated on show) |
+| Chat-4 | ✅ | Full conversation history sent on each request |
+| Chat-5 | ✅ | Stop button with `asyncio.Event` abort |
+| Chat-6 | ✅ | Clear via `Ctrl+L` |
 
 ---
 
-## ✅ Tests — COMPLETE (58 tests, 0 failures)
+## ✅ Phase 3C: Comprehensive Benchmarking — COMPLETE
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Bench-1 | ✅ | Load time tracking via `/api/v1/models/load` + wall-clock fallback |
+| Bench-2 | ✅ | Winner detection (`detect_winners()` marks best per metric) |
+| Bench-3 | ✅ | TPOT metric (time per output token via streaming) |
+| Bench-4 | ✅ | Reasoning token counting (`reasoning_content` field) |
+| Bench-5 | ✅ | Multi-mode via checkboxes (Throughput, Tool, Parallel) |
+
+---
+
+## ✅ Test Suite — COMPLETE (93 tests, 0 failures)
 
 | File | Coverage |
 |------|----------|
-| `tests/test_api_models.py` | `ModelsResponse.from_raw`, `ModelInfo.is_loaded`, field validators |
-| `tests/test_api_client.py` | `ping`, `list_models`, `load_model`, `_extract_metrics`, error handling |
-| `tests/test_benchmark_analysis.py` | `_percentile`, `_remove_iqr_outliers`, `analyze` |
+| `tests/test_api_models.py` | ModelsResponse, ModelInfo, field validators |
+| `tests/test_api_client.py` | ping, list_models, load_model, _extract_metrics |
+| `tests/test_benchmark_analysis.py` | percentile, IQR outliers, analyze, detect_winners |
+| `tests/test_agentic_benchmark.py` | Tool suite, scoring, agentic analyze |
 
 ---
 
-## Phase 3C: Comprehensive Benchmarking
-
-**Goal:** Full feature parity with benchmark-lmstudio.py
+## Phase 4: Advanced Features (Optional)
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| Bench-1 | HIGH | Load time tracking (JIT detection via polling) |
-| Bench-2 | HIGH | Winner detection per metric category |
-| Bench-3 | MEDIUM | TPOT metric (time per output token) |
-| Bench-4 | MEDIUM | Reasoning token counting (`reasoning_content`) |
-| Bench-5 | MEDIUM | Full/quick/tool benchmark mode selector |
-
----
-
-## Phase 4: Advanced Features
-
-| Feature | Priority | Description |
-|---------|----------|-------------|
-| SSE-1 | MEDIUM | Log stream (SSE endpoint, if server exposes one) |
+| SSE-1 | MEDIUM | SSE log stream endpoint (if server exposes) |
 | Multi-1 | LOW | Server switching UI (server selector widget) |
 | Multi-2 | LOW | Multi-server simultaneous monitoring |
 
@@ -70,19 +69,16 @@ All critical, high, and medium-priority issues resolved. Core UX, chat, and test
 ## Quick Reference
 
 ### Working Features
-- ✅ Dashboard — server status bar, model cards with sparklines
-- ✅ Models — 12-column table, load/unload/download, progress bar
+- ✅ Dashboard — server status bar, model cards
+- ✅ Models — 12-column table, load/unload/download
 - ✅ Chat — streaming chat, model selector, history, Stop/Clear
-- ✅ Monitor — TPS/TTFT sparklines, VRAM, recent requests table
-- ✅ Benchmark — multi-model, IQR outlier removal, CSV/JSON/MD export
-- ✅ Settings — server list, add/edit/remove, connection test, prefs
-- ✅ Portrait/landscape responsive (sidebar auto-collapse)
-- ✅ Keyboard shortcuts overlay (`?`)
-- ✅ Number keys 1-6 always navigate
-- ✅ Test suite: 58 tests covering API, models, and benchmark analysis
+- ✅ Monitor — TPS/TTFT sparklines, VRAM, requests table
+- ✅ Benchmark — multi-model, IQR outlier removal, winner detection
+- ✅ Settings — server config, connection test
+- ✅ Export — JSON, CSV, Markdown formats
+- ✅ 93 tests passing
 
 ### Known Limitations
-- TTFT is wall-clock only (LM Studio's `stats` field is always empty)
-- Download progress endpoint returns 404 on some server versions
-- SSE log stream not implemented (endpoint varies by server)
-- No load time tracking in benchmark
+- TTFT wall-clock only (server's `stats` field empty)
+- Download progress 404 on some server versions
+- No SSE log stream (endpoint varies by server)
