@@ -9,6 +9,7 @@ from textual.widgets import ContentSwitcher, Footer, Header, Label, ListItem, Li
 from .config.loader import config_exists, create_default_config, load_config, save_config
 from .config.models import AppConfig, ServerConfig
 from .screens.benchmark_runner import BenchmarkRunner
+from .screens.chat import ChatScreen
 from .screens.dashboard import Dashboard
 from .screens.live_monitor import LiveMonitor
 from .screens.model_manager import ModelManager
@@ -16,13 +17,14 @@ from .screens.settings import Settings
 from .state.metrics_store import MetricsStore
 from .state.server_registry import ConnectionState, ServerRegistry
 
-# (key, screen-id, label, shortcut-hint)
+# (key, label, shortcut-hint)
 _NAV_ITEMS = [
     ("dashboard",  "Dashboard",  "1"),
     ("models",     "Models",     "2"),
-    ("monitor",    "Monitor",    "3"),
-    ("benchmark",  "Benchmark",  "4"),
-    ("settings",   "Settings",  "5"),
+    ("chat",       "Chat",       "3"),
+    ("monitor",    "Monitor",    "4"),
+    ("benchmark",  "Benchmark",  "5"),
+    ("settings",   "Settings",  "6"),
 ]
 
 # Sidebar auto-collapses below this terminal width
@@ -30,6 +32,9 @@ _PORTRAIT_WIDTH = 70
 
 # Number-key labels shown in the portrait mini header
 _NAV_KEYS = " ".join(f"[{h}]" for _, _, h in _NAV_ITEMS)
+
+# Map screen key → display label for mini-header
+_SCREEN_LABELS = {key: label for key, label, _ in _NAV_ITEMS}
 
 
 class LMStudioApp(App[None]):
@@ -39,14 +44,16 @@ class LMStudioApp(App[None]):
     BINDINGS = [
         Binding("ctrl+q",         "quit",             "Quit",            show=True),
         Binding("ctrl+b",         "toggle_sidebar",   "Menu",            show=True),
-        Binding("escape",         "focus_nav",        "Back",            show=True),
+        Binding("escape",         "focus_nav",        "Nav",             show=True),
+        Binding("question_mark",  "show_shortcuts",   "Help",            show=True),
         Binding("ctrl+r",         "force_refresh",    "Refresh",         show=False),
         # Number-key shortcuts always work regardless of sidebar state
         Binding("1", "goto('dashboard')",  "Dashboard",  show=False),
         Binding("2", "goto('models')",     "Models",     show=False),
-        Binding("3", "goto('monitor')",    "Monitor",    show=False),
-        Binding("4", "goto('benchmark')",  "Benchmark",  show=False),
-        Binding("5", "goto('settings')",   "Settings",   show=False),
+        Binding("3", "goto('chat')",       "Chat",       show=False),
+        Binding("4", "goto('monitor')",    "Monitor",    show=False),
+        Binding("5", "goto('benchmark')",  "Benchmark",  show=False),
+        Binding("6", "goto('settings')",   "Settings",   show=False),
     ]
 
     sidebar_visible: reactive[bool] = reactive(True, init=False)
@@ -57,6 +64,7 @@ class LMStudioApp(App[None]):
         self.server_registry = ServerRegistry(config.servers, active_server=config.active_server)
         self.metrics_store = MetricsStore()
         self._needs_onboarding = needs_onboarding
+        self._current_screen = "dashboard"
 
     # ── layout ────────────────────────────────────────────────────────────────
 
@@ -75,34 +83,30 @@ class LMStudioApp(App[None]):
             with ContentSwitcher(initial="dashboard", id="content-area"):
                 yield Dashboard(id="dashboard")
                 yield ModelManager(id="models")
+                yield ChatScreen(id="chat")
                 yield LiveMonitor(id="monitor")
                 yield BenchmarkRunner(id="benchmark")
                 yield Settings(id="settings")
         yield Footer()
-        # Portrait mini header — shown only when sidebar is hidden.
-        # Always shows a menu toggle so portrait users can restore nav.
+        # Portrait mini header — visible only when sidebar is collapsed.
+        # Shows server state, current screen name, and number-key hints.
         yield Static("LM Studio TUI", id="mini-header")
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
     async def on_mount(self) -> None:
-        # Auto-collapse sidebar on narrow terminals
         if self.size.width < _PORTRAIT_WIDTH:
             self.sidebar_visible = False
 
-        # Focus nav list
         nav = self.query_one("#nav-list", ListView)
         nav.focus()
         nav.index = 0
 
-        # Update mini-header with server name
         self._update_mini_header()
 
         if self._needs_onboarding:
-            # push_screen_wait requires a worker context
             self.run_worker(self._run_onboarding(), exclusive=True)
         else:
-            # Connect to servers in background
             for server in self.config.servers:
                 self.run_worker(self.server_registry.connect(server.name), exclusive=False)
 
@@ -114,7 +118,6 @@ class LMStudioApp(App[None]):
             self.config.active_server = server_cfg.name
             save_config(self.config)
             self.server_registry = ServerRegistry(self.config.servers)
-        # Connect after onboarding (whether config was set or not)
         for server in self.config.servers:
             self.run_worker(self.server_registry.connect(server.name), exclusive=False)
 
@@ -122,22 +125,17 @@ class LMStudioApp(App[None]):
         await self.server_registry.disconnect_all()
 
     def on_resize(self) -> None:
-        """Auto-collapse sidebar when terminal is too narrow for side-by-side layout."""
         if self.size.width < _PORTRAIT_WIDTH:
             self.sidebar_visible = False
         elif self.size.width >= _PORTRAIT_WIDTH and not self.sidebar_visible:
-            # Restore sidebar when terminal widens again
             self.sidebar_visible = True
 
-    # ── sidebar + mini-header reactivity ───────────────────────────────────
+    # ── sidebar + mini-header reactivity ─────────────────────────────────────
 
     def watch_sidebar_visible(self, visible: bool) -> None:
         try:
-            sidebar = self.query_one("#sidebar")
-            sidebar.display = visible
-            # Show mini header when sidebar is hidden (portrait mode)
-            mini = self.query_one("#mini-header")
-            mini.display = not visible
+            self.query_one("#sidebar").display = visible
+            self.query_one("#mini-header").display = not visible
             self._update_mini_header()
         except Exception:
             pass
@@ -147,23 +145,31 @@ class LMStudioApp(App[None]):
             mini = self.query_one("#mini-header", Static)
             conn = self.server_registry.active_connection
             active_name = self.server_registry.active_name
+            screen_label = _SCREEN_LABELS.get(self._current_screen, "")
+
             if conn:
-                state_icon = {
-                    ConnectionState.CONNECTED: "●",
-                    ConnectionState.CONNECTING: "◌",
+                icon = {
+                    ConnectionState.CONNECTED:    "●",
+                    ConnectionState.CONNECTING:   "◌",
                     ConnectionState.DISCONNECTED: "○",
-                    ConnectionState.ERROR: "✗",
+                    ConnectionState.ERROR:        "✗",
                 }.get(conn.state, "○")
-                mini.update(f"LM Studio  {state_icon} {active_name}  {_NAV_KEYS}")
+                mini.update(
+                    f"LM Studio  {icon} {active_name}"
+                    f"  [bold]{screen_label}[/bold]  {_NAV_KEYS}"
+                )
             else:
-                mini.update(f"LM Studio  {active_name}  {_NAV_KEYS}")
+                mini.update(
+                    f"LM Studio  {active_name}"
+                    f"  [bold]{screen_label}[/bold]  {_NAV_KEYS}"
+                )
         except Exception:
             pass
 
     # ── navigation ────────────────────────────────────────────────────────────
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        """Switch screens immediately as the highlight moves (arrow keys)."""
+        """Switch screens as arrow keys move the highlight."""
         if event.list_view.id == "nav-list" and event.item and event.item.name:
             self._switch_to(event.item.name)
             if not self.sidebar_visible:
@@ -173,17 +179,17 @@ class LMStudioApp(App[None]):
         """Enter / Space: move focus into content area."""
         if event.list_view.id == "nav-list" and event.item and event.item.name:
             self._switch_to(event.item.name)
-            if not self.sidebar_visible:
-                self._focus_content()
+            self._focus_content()
 
     def _switch_to(self, screen_id: str) -> None:
         self.query_one("#content-area", ContentSwitcher).current = screen_id
-        # Keep nav index in sync
+        self._current_screen = screen_id
         nav = self.query_one("#nav-list", ListView)
         for i, (key, _, _) in enumerate(_NAV_ITEMS):
             if key == screen_id:
                 nav.index = i
                 break
+        self._update_mini_header()
 
     def _focus_content(self) -> None:
         """Move keyboard focus into the active content widget."""
@@ -204,7 +210,7 @@ class LMStudioApp(App[None]):
             self._focus_content()
 
     def action_focus_nav(self) -> None:
-        """Escape/Back — return focus to sidebar nav list, expanding it if hidden."""
+        """Escape — return focus to sidebar, expand it if hidden and wide enough."""
         if not self.sidebar_visible and self.size.width >= _PORTRAIT_WIDTH:
             self.sidebar_visible = True
         self.query_one("#nav-list", ListView).focus()
@@ -216,6 +222,10 @@ class LMStudioApp(App[None]):
         for server in self.config.servers:
             self.run_worker(self.server_registry.connect(server.name), exclusive=False)
 
+    def action_show_shortcuts(self) -> None:
+        from .screens.modals.shortcuts import ShortcutsModal
+        self.push_screen(ShortcutsModal())
+
 
 # ── factory ───────────────────────────────────────────────────────────────────
 
@@ -224,16 +234,13 @@ def create_app(endpoint: str | None = None, api_key: str | None = None) -> LMStu
 
     if not config_exists():
         if endpoint:
-            # CLI-supplied endpoint: create config silently, no onboarding
             config = create_default_config(endpoint, api_key or "")
         else:
-            # No config, no CLI args: use bare defaults, trigger onboarding in-app
             config = AppConfig(servers=[ServerConfig()])
             needs_onboarding = True
     else:
         config = load_config()
         if endpoint:
-            # CLI override: patch active server at runtime (not persisted)
             active = config.active_server_config
             active.endpoint = endpoint
             if api_key is not None:

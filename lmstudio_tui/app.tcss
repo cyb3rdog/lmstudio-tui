@@ -6,7 +6,8 @@
 }
 
 /* Portrait mini header — visible only when sidebar is hidden.
-   display is toggled programmatically in watch_sidebar_visible(). */
+   display is toggled programmatically in watch_sidebar_visible().
+   Docked top so it sits above the main layout. */
 #mini-header {
     width: 100%;
     height: 1;
@@ -14,6 +15,7 @@
     dock: top;
     display: none;
     padding: 0 1;
+    color: $text-muted;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
@@ -55,11 +57,40 @@
     text-style: bold;
 }
 
+/* Sidebar nav focus ring — clear indicator when sidebar has keyboard focus */
+#nav-list:focus {
+    border: none;
+    outline: none;
+}
+
 /* ── Content area ─────────────────────────────────────────────────────────── */
 
 #content-area {
     width: 1fr;
     height: 1fr;
+}
+
+/* ── Focus rings — explicit visible focus indicator for interactive widgets ── */
+
+/* Buttons: bold border when focused */
+Button:focus {
+    border: tall $primary;
+    text-style: bold;
+}
+
+/* DataTable: highlighted border when the table itself has focus */
+DataTable:focus {
+    border: tall $primary;
+}
+
+/* Select dropdown: highlighted when focused */
+Select:focus {
+    border: tall $primary;
+}
+
+/* ListView: left accent when focused (sidebar nav uses this) */
+ListView:focus-within {
+    border-left: thick $primary;
 }
 
 /* ── Status colors (global) ───────────────────────────────────────────────── */
@@ -78,7 +109,7 @@
 
 /* ── Modals — responsive sizing ───────────────────────────────────────────── */
 
-/* Base modal dialog: shrinks to fit on narrow screens */
+/* Base: shrinks to fit on narrow screens */
 ModalScreen > Vertical {
     background: $surface;
     border: thick $primary;
@@ -99,12 +130,27 @@ ConfirmModal > Vertical {
     max-width: 50;
 }
 
-/* ── Toolbar rows — wrap on narrow screens ────────────────────────────────── */
+/* Shortcuts modal: readable width */
+ShortcutsModal > Vertical {
+    max-width: 58;
+}
+
+/* ── Toolbar stacking — portrait/narrow screen layout ────────────────────── */
 
 /* Benchmark config stacks vertically on narrow screens via on_resize() */
 BenchmarkRunner #config-row.stacked {
     layout: vertical;
     height: auto;
+}
+
+/* Chat toolbar stacks vertically on narrow screens via on_resize() */
+ChatScreen #toolbar.stacked {
+    layout: vertical;
+    height: auto;
+}
+
+ChatScreen #toolbar.stacked #model-select {
+    width: 1fr;
 }
 
 /* Settings panels stack vertically when width is tight */

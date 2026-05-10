@@ -69,8 +69,10 @@ def analyze(
     total = _remove_iqr_outliers(total_raw) if remove_outliers else total_raw
 
     def safe_stat(fn, data):
+        if not data:
+            return None
         try:
-            return fn(data) if len(data) >= 2 else (data[0] if data else None)
+            return fn(data)
         except statistics.StatisticsError:
             return None
 

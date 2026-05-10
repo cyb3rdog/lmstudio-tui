@@ -68,11 +68,19 @@ class ModelInfo(BaseModel):
     @field_validator("state", mode="before")
     @classmethod
     def _coerce_state(cls, v: object) -> object:
-        """Accept unknown state strings gracefully instead of crashing."""
+        """Accept unknown state strings gracefully instead of crashing.
+
+        Handles str, ModelState enum, and None.  Uses .value to avoid the
+        Python 3.11 behaviour where str(StrEnum.member) returns 'Class.NAME'
+        rather than the underlying string value.
+        """
         if v is None:
             return None
+        if isinstance(v, ModelState):
+            return v
+        raw = v.value if hasattr(v, "value") else str(v)
         try:
-            return ModelState(str(v).lower())
+            return ModelState(raw.lower())
         except ValueError:
             return None
 
