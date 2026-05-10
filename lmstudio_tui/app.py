@@ -4,7 +4,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
-from textual.widgets import ContentSwitcher, Footer, Header, Label, ListItem, ListView
+from textual.widgets import ContentSwitcher, Footer, Header, Label, ListItem, ListView, Static
 
 from .config.loader import config_exists, create_default_config, load_config, save_config
 from .config.models import AppConfig, ServerConfig
@@ -14,19 +14,22 @@ from .screens.live_monitor import LiveMonitor
 from .screens.model_manager import ModelManager
 from .screens.settings import Settings
 from .state.metrics_store import MetricsStore
-from .state.server_registry import ServerRegistry
+from .state.server_registry import ConnectionState, ServerRegistry
 
 # (key, screen-id, label, shortcut-hint)
 _NAV_ITEMS = [
-    ("dashboard",  "  Dashboard",  "1"),
-    ("models",     "  Models",     "2"),
-    ("monitor",    "  Monitor",    "3"),
-    ("benchmark",  "  Benchmark",  "4"),
-    ("settings",   "  Settings",   "5"),
+    ("dashboard",  "Dashboard",  "1"),
+    ("models",     "Models",     "2"),
+    ("monitor",    "Monitor",    "3"),
+    ("benchmark",  "Benchmark",  "4"),
+    ("settings",   "Settings",  "5"),
 ]
 
 # Sidebar auto-collapses below this terminal width
 _PORTRAIT_WIDTH = 70
+
+# Number-key labels shown in the portrait mini header
+_NAV_KEYS = " ".join(f"[{h}]" for _, _, h in _NAV_ITEMS)
 
 
 class LMStudioApp(App[None]):
@@ -51,7 +54,7 @@ class LMStudioApp(App[None]):
     def __init__(self, config: AppConfig, needs_onboarding: bool = False) -> None:
         super().__init__()
         self.config = config
-        self.server_registry = ServerRegistry(config.servers)
+        self.server_registry = ServerRegistry(config.servers, active_server=config.active_server)
         self.metrics_store = MetricsStore()
         self._needs_onboarding = needs_onboarding
 
@@ -64,7 +67,7 @@ class LMStudioApp(App[None]):
                 yield Label("  LM Studio TUI", id="sidebar-title")
                 yield ListView(
                     *[
-                        ListItem(Label(f"{label}  [{hint}]"), name=key)
+                        ListItem(Label(f"  {label}  [{hint}]"), name=key)
                         for key, label, hint in _NAV_ITEMS
                     ],
                     id="nav-list",
@@ -76,6 +79,9 @@ class LMStudioApp(App[None]):
                 yield BenchmarkRunner(id="benchmark")
                 yield Settings(id="settings")
         yield Footer()
+        # Portrait mini header — shown only when sidebar is hidden.
+        # Always shows a menu toggle so portrait users can restore nav.
+        yield Static("LM Studio TUI", id="mini-header")
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -88,6 +94,9 @@ class LMStudioApp(App[None]):
         nav = self.query_one("#nav-list", ListView)
         nav.focus()
         nav.index = 0
+
+        # Update mini-header with server name
+        self._update_mini_header()
 
         if self._needs_onboarding:
             # push_screen_wait requires a worker context
@@ -120,12 +129,34 @@ class LMStudioApp(App[None]):
             # Restore sidebar when terminal widens again
             self.sidebar_visible = True
 
-    # ── sidebar reactivity ────────────────────────────────────────────────────
+    # ── sidebar + mini-header reactivity ───────────────────────────────────
 
     def watch_sidebar_visible(self, visible: bool) -> None:
         try:
             sidebar = self.query_one("#sidebar")
             sidebar.display = visible
+            # Show mini header when sidebar is hidden (portrait mode)
+            mini = self.query_one("#mini-header")
+            mini.display = not visible
+            self._update_mini_header()
+        except Exception:
+            pass
+
+    def _update_mini_header(self) -> None:
+        try:
+            mini = self.query_one("#mini-header", Static)
+            conn = self.server_registry.active_connection
+            active_name = self.server_registry.active_name
+            if conn:
+                state_icon = {
+                    ConnectionState.CONNECTED: "●",
+                    ConnectionState.CONNECTING: "◌",
+                    ConnectionState.DISCONNECTED: "○",
+                    ConnectionState.ERROR: "✗",
+                }.get(conn.state, "○")
+                mini.update(f"LM Studio  {state_icon} {active_name}  {_NAV_KEYS}")
+            else:
+                mini.update(f"LM Studio  {active_name}  {_NAV_KEYS}")
         except Exception:
             pass
 

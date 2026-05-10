@@ -33,12 +33,11 @@ class ServerRegistry:
     adding multi-server switching later with minimal refactoring.
     """
 
-    def __init__(self, configs: list[ServerConfig], active_server: str = "") -> None:
+    def __init__(self, configs: list[ServerConfig]) -> None:
         self._connections: dict[str, ServerConnection] = {
             c.name: ServerConnection(config=c) for c in configs
         }
-        # Use provided active_server, or fall back to first server name
-        self._active: str = active_server or (configs[0].name if configs else "")
+        self._active: str = configs[0].name if configs else ""
 
     @property
     def active_name(self) -> str:

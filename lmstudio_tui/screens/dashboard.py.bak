@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
 from textual.widget import Widget
@@ -56,45 +54,12 @@ class Dashboard(Widget):
         )
         self._refresh()
 
-    def on_resize(self) -> None:
-        self._update_server_bar()
-
-    def _update_server_bar(self) -> None:
-        conn = self.app.server_registry.active_connection
-        if not conn:
-            return
-        server_bar = self.query_one("#server-bar", Static)
-        endpoint = conn.config.endpoint
-        # Shorten endpoint in portrait mode
-        if self.size.width < 60 and len(endpoint) > 30:
-            endpoint = endpoint[:27] + "…"
-        if conn.state == ConnectionState.CONNECTED and conn.client:
-            ping_str = f"{conn.ping_ms:.0f}ms" if conn.ping_ms else "—"
-            server_bar.update(
-                f"  [bold]{endpoint}[/bold]   "
-                f"[green]● Connected[/green]   {ping_str}"
-            )
-        elif conn.state == ConnectionState.CONNECTING:
-            server_bar.update(f"  [yellow]◌ Connecting…[/yellow]")
-        else:
-            server_bar.update(f"  [red]✗ {conn.last_error or 'unreachable'}[/red]")
-
     def on_unmount(self) -> None:
         self._refresh_timer.stop()
 
     @work(exclusive=True)
     async def _refresh(self) -> None:
         conn = self.app.server_registry.active_connection
-        
-        # Wait for connection to be established (fixes race condition RC1)
-        if not conn or conn.state != ConnectionState.CONNECTED:
-            # Poll until connected or timeout (5 seconds)
-            for _ in range(20):
-                await asyncio.sleep(0.25)
-                conn = self.app.server_registry.active_connection
-                if conn and conn.state == ConnectionState.CONNECTED:
-                    break
-
         if not conn:
             return
 

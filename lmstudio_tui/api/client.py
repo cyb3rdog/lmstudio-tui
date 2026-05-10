@@ -77,29 +77,30 @@ class LMStudioClient:
     def _extract_metrics(data: dict, model_id: str, total_ms: float) -> CompletionMetrics:
         """Extract performance metrics from a LM Studio chat/completion response.
 
-        LM Studio v1 puts perf data in a top-level 'stats' key:
-          stats.tokens_per_second    (float)
-          stats.time_to_first_token  (float, seconds)
-          stats.time_to_generate     (float, seconds)
+        The LM Studio v1 API does NOT populate stats.tokens_per_second or
+        stats.time_to_first_token — those fields are always empty ({}) in both
+        /v1/chat/completions and /v1/completions responses.
 
-        Older / OpenAI-compat responses may omit stats entirely; we fall back to
-        wall-clock total_ms in that case and leave tps/ttft as None.
+        We fall back to wall-clock timing for all performance fields and rely
+        entirely on the usage token counts for benchmark reporting.
         """
         usage = data.get("usage", {})
-        stats = data.get("stats", {})
+        prompt_toks = usage.get("prompt_tokens", 0)
+        completion_toks = usage.get("completion_tokens", 0)
 
-        tps: float | None = stats.get("tokens_per_second")
-        # LM Studio returns TTFT in seconds; convert to ms
-        ttft_s: float | None = stats.get("time_to_first_token")
-        ttft_ms = ttft_s * 1000.0 if ttft_s is not None else None
+        # Wall-clock tps is a reasonable fallback when server stats are absent
+        tps: float | None = None
+        ttft_ms: float | None = None
+        if total_ms > 0 and completion_toks > 0:
+            tps = (completion_toks / total_ms) * 1000.0
 
         return CompletionMetrics(
             model_id=model_id,
             tokens_per_second=tps,
             time_to_first_token_ms=ttft_ms,
             total_duration_ms=total_ms,
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
+            prompt_tokens=prompt_toks,
+            completion_tokens=completion_toks,
         )
 
     # ── health ────────────────────────────────────────────────────────────────
@@ -113,14 +114,14 @@ class LMStudioClient:
     # ── models ────────────────────────────────────────────────────────────────
 
     async def list_models(self) -> list[ModelInfo]:
-        data = await self._get("/api/v1/models")
-        return ModelsResponse.model_validate(data).data
+        raw = await self._get("/api/v1/models")
+        return ModelsResponse.from_raw(raw).model_list
 
     async def load_model(self, request: LoadRequest) -> str:
         body: dict[str, Any] = {"model": request.model}
-        if request.gpu_layers is not None:
-            body["gpu_layers"] = request.gpu_layers
-        if request.context_length is not None:
+        # Note: LM Studio v1 rejects gpu_layers with "Unrecognized key(s)".
+        # Only send context_length if explicitly set (and non-zero).
+        if request.context_length and request.context_length > 0:
             body["context_length"] = request.context_length
         data = await self._post("/api/v1/models/load", body)
         return LoadResponse.model_validate(data).instance_id

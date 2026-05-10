@@ -13,9 +13,21 @@ class ModelState(str, Enum):
 
 
 class ModelInfo(BaseModel):
+    """Model info parsed from LM Studio /api/v1/models.
+
+    API field          →  ModelInfo field
+    ─────────────────────────────────────
+    key                →  id
+    models[*].loaded_instances[0].id  →  instance_id
+    quantization.name  →  quantization (str)
+    max_context_length (top-level)    →  max_context_length
+    gpu_layers         →  (not in LM Studio v1 API — always None)
+    kv_cache_type      →  (not in LM Studio v1 API — always None)
+    """
+
     model_config = ConfigDict(extra="ignore")
 
-    id: str
+    id: str = ""
     object: str = "model"
     owned_by: str = ""
     # LM Studio v1 extras
@@ -23,14 +35,35 @@ class ModelInfo(BaseModel):
     max_context_length: int | None = None
     quantization: str | None = None
     instance_id: str | None = None
-    # Load configuration (present when loaded)
+    # Load configuration — NOT returned by LM Studio v1 /api/v1/models
+    # These stay None; they are populated from load_model response when needed.
     gpu_layers: int | None = None
     context_length: int | None = None
     kv_cache_type: str | None = None
-    # Inference parameters (returned by LM Studio when model is loaded)
+    # Inference parameters — NOT returned by LM Studio v1 /api/v1/models
     temperature: float | None = None
     top_p: float | None = None
     repeat_penalty: float | None = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v: object) -> str:
+        """Accept 'key' (LM Studio) or 'id' (OpenAI)."""
+        if isinstance(v, str):
+            return v
+        return str(v) if v is not None else ""
+
+    @field_validator("quantization", mode="before")
+    @classmethod
+    def _coerce_quantization(cls, v: object) -> str | None:
+        """Accept quantization.name (LM Studio dict) or a plain str."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            return v.get("name")
+        return str(v)
 
     @field_validator("state", mode="before")
     @classmethod
@@ -45,15 +78,50 @@ class ModelInfo(BaseModel):
 
     @property
     def is_loaded(self) -> bool:
-        if self.state is not None:
-            return self.state == ModelState.LOADED
-        # Fallback: if state is absent but instance_id is present, model is loaded
-        return self.instance_id is not None
+        """True when the model has at least one loaded instance."""
+        return self.instance_id is not None or self.state == ModelState.LOADED
 
 
 class ModelsResponse(BaseModel):
-    object: str = "list"
+    """Accepts both the LM Studio schema ({"models": [...]}) and the
+    OpenAI-compatible schema ({"data": [...]})."""
+
+    # At least one of these will be populated; use whichever the server sent.
+    models: list[ModelInfo] = Field(default_factory=list)
     data: list[ModelInfo] = Field(default_factory=list)
+
+    @property
+    def model_list(self) -> list[ModelInfo]:
+        return self.models or self.data
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "ModelsResponse":
+        """Parse raw server JSON, handling the 'models' (LM Studio) or 'data'
+        (OpenAI) top-level key, and extracting instance_ids from the nested
+        loaded_instances array."""
+
+        def _extract_instance_id(m: dict) -> str | None:
+            li = m.get("loaded_instances", [])
+            return li[0].get("id") if li else None
+
+        def _normalize(m: dict) -> dict:
+            """Flatten LM Studio-specific fields so Pydantic can validate them."""
+            instance_id = _extract_instance_id(m)
+            return {
+                **m,
+                "id": m.get("key") or m.get("id", ""),
+                "instance_id": instance_id,
+                "quantization": m.get("quantization"),
+            }
+
+        if "models" in raw:
+            normalized = [_normalize(m) for m in raw["models"]]
+            return cls(models=normalized)
+        elif "data" in raw:
+            return cls(data=raw["data"])
+        else:
+            # Empty or malformed — return empty list
+            return cls()
 
 
 class LoadRequest(BaseModel):
@@ -63,8 +131,13 @@ class LoadRequest(BaseModel):
 
 
 class LoadResponse(BaseModel):
+    """Response from POST /api/v1/models/load."""
+
     instance_id: str
-    model: str
+    model: str = ""          # may be omitted by server
+    type: str = "llm"       # may be omitted
+    load_time_seconds: float = 0.0   # informational only
+    status: str = ""         # "loaded" — informational only
 
 
 class UnloadRequest(BaseModel):

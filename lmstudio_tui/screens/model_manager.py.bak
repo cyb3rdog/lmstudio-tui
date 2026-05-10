@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
@@ -56,11 +54,7 @@ class ModelManager(Widget):
 
     def on_mount(self) -> None:
         table = self.query_one("#models-table", DataTable)
-        table.add_column("Model", width=40)
-        table.add_column("Status", width=8)
-        table.add_column("Quant", width=8)
-        table.add_column("Ctx", width=6)
-        table.add_column("VRAM", width=6)
+        table.add_columns("Model", "Status", "Quant", "Ctx", "VRAM")
         self._dl_timer = None
         self.action_refresh()
 
@@ -86,16 +80,6 @@ class ModelManager(Widget):
     @work(exclusive=True)
     async def action_refresh(self) -> None:
         client = self.app.server_registry.active_client
-        
-        # Wait for connection to be established (fixes race condition RC1)
-        if not client:
-            # Poll until connected or timeout (5 seconds)
-            for _ in range(20):
-                await asyncio.sleep(0.25)
-                client = self.app.server_registry.active_client
-                if client:
-                    break
-        
         if not client:
             return
         try:
@@ -108,8 +92,6 @@ class ModelManager(Widget):
                 ctx = format_ctx(m.max_context_length or m.context_length)
                 vram = "—"
                 table.add_row(m.id, status, quant, ctx, vram, key=m.id)
-            # Force refresh after updating table
-            table.refresh()
         except Exception as e:
             self.notify(str(e), severity="error")
 

@@ -51,7 +51,7 @@ class BenchmarkRunner(Widget):
         padding: 0 1;
         height: 1;
     }
-    BenchmarkRunner #btn-row { height: auto; padding: 0 1; }
+    BenchmarkRunner #btn-row { height: auto; padding: 0; }
     BenchmarkRunner #btn-row Button { margin: 0 1 0 0; }
     """
 
@@ -73,10 +73,11 @@ class BenchmarkRunner(Widget):
                 yield Input(value="0.0", id="inp-temp")
                 yield Label("Max tokens:")
                 yield Input(value="256", id="inp-maxtok")
-            with Horizontal(id="btn-row"):
-                yield Button("▶ Start", id="btn-start", variant="primary")
-                yield Button("■ Stop", id="btn-stop", variant="error")
-                yield Button("⬇ Export", id="btn-export", variant="default")
+                # btn-row is INSIDE config-row so it stacks with it in portrait mode
+                with Horizontal(id="btn-row"):
+                    yield Button("▶ Start", id="btn-start", variant="primary")
+                    yield Button("■ Stop", id="btn-stop", variant="error")
+                    yield Button("⬇ Export", id="btn-export", variant="default")
         with Horizontal(id="progress-bar-row", classes="-hidden"):
             yield Label("", id="prog-label")
             yield ProgressBar(id="prog-bar", total=100, show_eta=False)

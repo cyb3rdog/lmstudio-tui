@@ -20,8 +20,14 @@ def load_config() -> AppConfig:
     if not CONFIG_FILE.exists():
         return AppConfig()
 
-    with open(CONFIG_FILE, "rb") as f:
-        data = tomllib.load(f)
+    try:
+        with open(CONFIG_FILE, "rb") as f:
+            data = tomllib.load(f)
+    except Exception:
+        # Corrupted or unreadable config — log and return defaults
+        import sys
+        print(f"[lmstudio-tui] Warning: config file unreadable, using defaults: {CONFIG_FILE}", file=sys.stderr)
+        return AppConfig()
 
     servers = [
         ServerConfig(

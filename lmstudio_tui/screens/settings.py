@@ -23,6 +23,7 @@ class Settings(Widget):
     }
     Settings #server-panel {
         width: 36;
+        min-width: 28;
         height: 1fr;
         border-right: solid $primary-darken-3;
         padding: 0 1;

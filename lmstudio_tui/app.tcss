@@ -5,6 +5,17 @@
     height: 1fr;
 }
 
+/* Portrait mini header — visible only when sidebar is hidden.
+   display is toggled programmatically in watch_sidebar_visible(). */
+#mini-header {
+    width: 100%;
+    height: 1;
+    background: $surface-darken-1;
+    dock: top;
+    display: none;
+    padding: 0 1;
+}
+
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 
 #sidebar {
@@ -39,7 +50,7 @@
 }
 
 #nav-list > ListItem.--highlight {
-    background: $primary-darken-1;
+    background: $primary;
     color: $text;
     text-style: bold;
 }
