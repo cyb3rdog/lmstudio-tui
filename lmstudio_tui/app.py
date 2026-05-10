@@ -129,6 +129,7 @@ class LMStudioApp(App[None]):
             self.sidebar_visible = False
         elif self.size.width >= _PORTRAIT_WIDTH and not self.sidebar_visible:
             self.sidebar_visible = True
+        self._update_mini_header()
 
     # ── sidebar + mini-header reactivity ─────────────────────────────────────
 
@@ -144,9 +145,10 @@ class LMStudioApp(App[None]):
         try:
             mini = self.query_one("#mini-header", Static)
             conn = self.server_registry.active_connection
-            active_name = self.server_registry.active_name
             screen_label = _SCREEN_LABELS.get(self._current_screen, "")
+            w = self.size.width
 
+            icon = "○"
             if conn:
                 icon = {
                     ConnectionState.CONNECTED:    "●",
@@ -154,14 +156,18 @@ class LMStudioApp(App[None]):
                     ConnectionState.DISCONNECTED: "○",
                     ConnectionState.ERROR:        "✗",
                 }.get(conn.state, "○")
-                mini.update(
-                    f"LM Studio  {icon} {active_name}"
-                    f"  [bold]{screen_label}[/bold]  {_NAV_KEYS}"
-                )
+
+            if w < 50:
+                # Very narrow: just screen name + minimal nav hint
+                mini.update(f"[bold]{screen_label}[/bold]  [dim]{_NAV_KEYS}[/dim]")
+            elif w < 70:
+                # Narrow: status icon + screen name + nav keys
+                mini.update(f"{icon}  [bold]{screen_label}[/bold]  [dim]{_NAV_KEYS}[/dim]")
             else:
+                # Wide portrait: server name + screen + keys
+                server_name = self.server_registry.active_name
                 mini.update(
-                    f"LM Studio  {active_name}"
-                    f"  [bold]{screen_label}[/bold]  {_NAV_KEYS}"
+                    f"{icon} {server_name}  [bold]{screen_label}[/bold]  [dim]{_NAV_KEYS}[/dim]"
                 )
         except Exception:
             pass
@@ -176,9 +182,16 @@ class LMStudioApp(App[None]):
                 self._focus_content()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """Enter / Space: move focus into content area."""
+        """Enter / Space: switch screen and move focus into content area.
+
+        On portrait/mobile (sidebar was auto-collapsed) collapse after selection
+        so the content fills the screen.
+        """
         if event.list_view.id == "nav-list" and event.item and event.item.name:
             self._switch_to(event.item.name)
+            # Auto-collapse on portrait so content has full width
+            if self.size.width < _PORTRAIT_WIDTH:
+                self.sidebar_visible = False
             self._focus_content()
 
     def _switch_to(self, screen_id: str) -> None:
@@ -210,10 +223,24 @@ class LMStudioApp(App[None]):
             self._focus_content()
 
     def action_focus_nav(self) -> None:
-        """Escape — return focus to sidebar, expand it if hidden and wide enough."""
-        if not self.sidebar_visible and self.size.width >= _PORTRAIT_WIDTH:
-            self.sidebar_visible = True
-        self.query_one("#nav-list", ListView).focus()
+        """Escape — smart sidebar toggle.
+
+        - If sidebar is hidden  → expand it (if wide enough) and focus nav.
+        - If sidebar is visible and nav already has focus → collapse it and
+          move focus to content (Escape acts as a second toggle).
+        - Otherwise → just focus nav without changing sidebar state.
+        """
+        nav = self.query_one("#nav-list", ListView)
+        if not self.sidebar_visible:
+            if self.size.width >= _PORTRAIT_WIDTH:
+                self.sidebar_visible = True
+            nav.focus()
+        elif nav.has_focus:
+            # Second Escape while nav is focused → collapse sidebar
+            self.sidebar_visible = False
+            self._focus_content()
+        else:
+            nav.focus()
 
     def action_goto(self, screen_id: str) -> None:
         self._switch_to(screen_id)

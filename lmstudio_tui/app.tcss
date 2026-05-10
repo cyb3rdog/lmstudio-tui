@@ -5,17 +5,20 @@
     height: 1fr;
 }
 
-/* Portrait mini header — visible only when sidebar is hidden.
-   display is toggled programmatically in watch_sidebar_visible().
-   Docked top so it sits above the main layout. */
+/* ── Portrait mini-header ─────────────────────────────────────────────────── */
+
+/* Shown only when sidebar is hidden (toggled by watch_sidebar_visible).
+   Displays server status, current screen name, and number-key hints.   */
 #mini-header {
     width: 100%;
-    height: 1;
-    background: $surface-darken-1;
+    height: 2;
+    background: $primary-darken-3;
     dock: top;
     display: none;
     padding: 0 1;
-    color: $text-muted;
+    color: $text;
+    text-style: bold;
+    border-bottom: solid $primary-darken-2;
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
@@ -57,7 +60,6 @@
     text-style: bold;
 }
 
-/* Sidebar nav focus ring — clear indicator when sidebar has keyboard focus */
 #nav-list:focus {
     border: none;
     outline: none;
@@ -70,30 +72,34 @@
     height: 1fr;
 }
 
-/* ── Focus rings — explicit visible focus indicator for interactive widgets ── */
+/* ── Focus rings ──────────────────────────────────────────────────────────── */
 
-/* Buttons: bold border when focused */
 Button:focus {
     border: tall $primary;
     text-style: bold;
 }
 
-/* DataTable: highlighted border when the table itself has focus */
 DataTable:focus {
     border: tall $primary;
 }
 
-/* Select dropdown: highlighted when focused */
 Select:focus {
     border: tall $primary;
 }
 
-/* ListView: left accent when focused (sidebar nav uses this) */
+SelectionList:focus {
+    border: tall $primary;
+}
+
+Input:focus {
+    border: tall $primary;
+}
+
 ListView:focus-within {
     border-left: thick $primary;
 }
 
-/* ── Status colors (global) ───────────────────────────────────────────────── */
+/* ── Status colors ────────────────────────────────────────────────────────── */
 
 .status-connected    { color: $success; }
 .status-connecting   { color: $warning; }
@@ -107,9 +113,8 @@ ListView:focus-within {
     color: $primary;
 }
 
-/* ── Modals — responsive sizing ───────────────────────────────────────────── */
+/* ── Modals ───────────────────────────────────────────────────────────────── */
 
-/* Base: shrinks to fit on narrow screens */
 ModalScreen > Vertical {
     background: $surface;
     border: thick $primary;
@@ -120,30 +125,33 @@ ModalScreen > Vertical {
     align: center middle;
 }
 
-/* Onboarding wider on large screens */
 OnboardingModal > Vertical {
     max-width: 64;
 }
 
-/* Confirm dialog is narrower */
 ConfirmModal > Vertical {
     max-width: 50;
 }
 
-/* Shortcuts modal: readable width */
 ShortcutsModal > Vertical {
     max-width: 58;
 }
 
-/* ── Toolbar stacking — portrait/narrow screen layout ────────────────────── */
+/* ── Toolbar stacking (portrait / narrow screens) ─────────────────────────── */
 
-/* Benchmark config stacks vertically on narrow screens via on_resize() */
-BenchmarkRunner #config-row.stacked {
+/* Model Manager: stack buttons below ~58 cols */
+ModelManager #toolbar.stacked {
     layout: vertical;
     height: auto;
+    padding-bottom: 1;
 }
 
-/* Chat toolbar stacks vertically on narrow screens via on_resize() */
+ModelManager #toolbar.stacked Button {
+    width: 100%;
+    margin: 0 0 1 0;
+}
+
+/* Chat toolbar stacks below ~60 cols */
 ChatScreen #toolbar.stacked {
     layout: vertical;
     height: auto;
@@ -153,9 +161,22 @@ ChatScreen #toolbar.stacked #model-select {
     width: 1fr;
 }
 
-/* Settings panels stack vertically when width is tight */
+/* Settings panels stack vertically when width < 60 */
 Settings #server-panel {
     min-width: 28;
+}
+
+/* LiveMonitor toolbar can become multiline when columns labeled */
+LiveMonitor #toolbar.stacked {
+    layout: vertical;
+    height: auto;
+}
+
+/* ── DataTable column widths — compact on narrow screens ─────────────────── */
+
+/* Utility: hide non-essential columns with .col-hidden class added by Python */
+.col-narrow {
+    display: none;
 }
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */

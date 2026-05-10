@@ -62,12 +62,26 @@ class ModelManager(Widget):
         table.add_column("Ctx", width=6)
         table.add_column("VRAM", width=6)
         self._dl_timer = None
-        self._dl_client = None  # Store client for download poll
+        self._dl_client = None
+        self._update_toolbar_layout()
         self.action_refresh()
 
     def on_unmount(self) -> None:
         if self._dl_timer:
             self._dl_timer.stop()
+
+    def on_resize(self) -> None:
+        self._update_toolbar_layout()
+
+    def _update_toolbar_layout(self) -> None:
+        try:
+            toolbar = self.query_one("#toolbar")
+            if self.size.width < 58:
+                toolbar.add_class("stacked")
+            else:
+                toolbar.remove_class("stacked")
+        except Exception:
+            pass
 
     # ── sync dispatcher ───────────────────────────────────────────────────────
 

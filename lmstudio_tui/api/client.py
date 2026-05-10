@@ -298,6 +298,11 @@ class LMStudioClient:
         total_ms = (t_end - t0) * 1000.0
         ttft_ms = (t_first - t0) * 1000.0 if t_first is not None else None
 
+        # LM Studio often omits usage from streaming chunks. Fall back to counting
+        # content delta chunks — each SSE event is approximately one token.
+        if completion_tokens == 0 and content_parts:
+            completion_tokens = len(content_parts)
+
         # TPOT: time per output token (excluding first token latency)
         tpot_ms: float | None = None
         if ttft_ms is not None and completion_tokens > 1 and total_ms > ttft_ms:

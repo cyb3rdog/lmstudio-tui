@@ -1,307 +1,560 @@
 from __future__ import annotations
 
+import asyncio
+import time
+from dataclasses import dataclass, field
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Button, DataTable, Input, Label, ProgressBar, Select, Static
+from textual.widgets import (
+    Button, Checkbox, DataTable, Input, Label, ProgressBar,
+    SelectionList, Static,
+)
+from textual.widgets.selection_list import Selection
 from textual import work
 
-from ..api.models import CompletionMetrics
-from ..benchmark.engine import BenchmarkMode
+from ..api.models import CompletionMetrics, LoadRequest
+from ..benchmark.engine import BenchmarkEngine, BenchmarkMode, BenchmarkSpec
+from ..benchmark.analysis import BenchmarkResult, analyze, detect_winners
 from ..utils.formatting import format_ms, format_tps
-from ..widgets.comparison_chart import ChartRow, ComparisonChart
 
 
-def _fmt(v: float | None, decimals: int = 1) -> str:
-    return f"{v:.{decimals}f}" if v is not None else "—"
+def _fmt(v: float | None, decimals: int = 1, suffix: str = "") -> str:
+    if v is None:
+        return "—"
+    return f"{v:.{decimals}f}{suffix}"
 
 
 def _pct(v: float | None) -> str:
-    return f"{v * 100:.1f}%" if v is not None else "—"
+    return f"{v * 100:.0f}%" if v is not None else "—"
+
+
+@dataclass
+class _ModelEntry:
+    id: str
+    is_loaded: bool
+    instance_id: str | None = None
 
 
 class BenchmarkRunner(Widget):
+    """Agentic benchmark runner.
+
+    Flow:
+      1. Load model list from server (loaded + not loaded).
+      2. User checks models and modes to run.
+      3. On Start: unload all → for each checked model:
+         load → capture load_ms → run checked modes → unload.
+      4. Per-sample rows appear in real time; summary updates per model.
+    """
+
     DEFAULT_CSS = """
     BenchmarkRunner {
         width: 1fr;
         height: 1fr;
+        layout: vertical;
     }
+
+    /* ── Config panel ────────────────────────────────────────────── */
     BenchmarkRunner #config-panel {
         height: auto;
-        padding: 0 1;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
+        padding: 0 1 1 1;
     }
-    BenchmarkRunner .config-row {
+    BenchmarkRunner .cfg-title {
+        color: $primary;
+        text-style: bold;
+        padding: 1 0 0 0;
+        height: 2;
+    }
+    BenchmarkRunner #model-list {
+        height: 8;
+        max-height: 10;
+        border: solid $primary-darken-3;
+        margin-bottom: 1;
+    }
+    BenchmarkRunner #model-actions {
         height: auto;
-        padding: 0;
-        align: left middle;
+        margin-bottom: 1;
     }
-    BenchmarkRunner .config-row.stacked { layout: vertical; }
-    BenchmarkRunner .config-row Label { margin: 0 1; width: auto; }
-    BenchmarkRunner .config-row Input { width: 8; }
-    BenchmarkRunner .config-row Select { width: 20; }
-    BenchmarkRunner #mode-row { height: 3; }
-    BenchmarkRunner #params-row { height: 3; }
-    BenchmarkRunner #btn-row { height: 3; }
-    BenchmarkRunner #btn-row Button { margin: 0 1 0 0; }
-    BenchmarkRunner #progress-bar-row {
+    BenchmarkRunner #model-actions Button {
+        width: auto;
+        margin: 0 1 0 0;
+    }
+    BenchmarkRunner #mode-row {
+        height: auto;
+        margin-bottom: 1;
+    }
+    BenchmarkRunner #mode-row Checkbox {
+        margin: 0 2 0 0;
+        width: auto;
+    }
+    BenchmarkRunner #params-row {
+        height: auto;
+    }
+    BenchmarkRunner #params-row Label {
+        width: auto;
+        margin: 0 1;
+    }
+    BenchmarkRunner #params-row Input {
+        width: 7;
+    }
+    BenchmarkRunner #btn-row {
+        height: auto;
+        margin-top: 1;
+    }
+    BenchmarkRunner #btn-row Button {
+        margin: 0 1 0 0;
+        width: auto;
+    }
+
+    /* ── Progress ────────────────────────────────────────────────── */
+    BenchmarkRunner #progress-panel {
         height: 3;
         padding: 0 1;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
         align: left middle;
     }
-    BenchmarkRunner #progress-bar-row.-hidden { display: none; }
+    BenchmarkRunner #progress-panel.-hidden { display: none; }
     BenchmarkRunner #prog-bar { width: 1fr; }
+    BenchmarkRunner #prog-label { width: auto; margin-right: 1; }
+
+    /* ── Results ─────────────────────────────────────────────────── */
     BenchmarkRunner #results-table { height: 1fr; }
-    BenchmarkRunner #comparison-section {
+
+    /* ── Summary ─────────────────────────────────────────────────── */
+    BenchmarkRunner #summary-panel {
         height: auto;
-        max-height: 10;
+        max-height: 12;
         border-top: solid $primary-darken-3;
         padding: 0 1;
     }
-    BenchmarkRunner #comparison-title {
+    BenchmarkRunner #summary-title {
         color: $primary;
         text-style: bold;
-        padding: 0 1;
         height: 1;
+    }
+    BenchmarkRunner #summary-content {
+        height: auto;
+        color: $text-muted;
     }
     """
 
     running: reactive[bool] = reactive(False)
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._model_entries: list[_ModelEntry] = []
+        self._results: list[BenchmarkResult] = []
+        self._run_count = 0
+        self._stop = False
+
+    # ── compose ───────────────────────────────────────────────────────────────
+
     def compose(self) -> ComposeResult:
-        with Vertical(id="config-panel"):
-            with Horizontal(classes="config-row", id="mode-row"):
-                yield Label("Mode:")
-                yield Select(
-                    [
-                        (BenchmarkMode.THROUGHPUT, "throughput"),
-                        (BenchmarkMode.TOOL_CALLING, "tool_calling"),
-                        (BenchmarkMode.LOAD_TIME, "load_time"),
-                        (BenchmarkMode.PARALLEL, "parallel"),
-                    ],
-                    value=BenchmarkMode.THROUGHPUT,
-                    id="sel-mode",
-                )
-                yield Label("Prompt set:")
-                yield Select(
-                    [("short", "short"), ("medium", "medium"), ("long", "long"),
-                     ("code", "code"), ("mixed", "mixed")],
-                    value="mixed",
-                    id="sel-prompts",
-                )
-                yield Label("Tool subset:")
-                yield Select(
-                    [("all", "all"), ("calculator", "calculator"), ("weather", "weather"),
-                     ("string", "string"), ("search", "search")],
-                    value="all",
-                    id="sel-tools",
-                )
-            with Horizontal(classes="config-row", id="params-row"):
+        with ScrollableContainer(id="config-panel"):
+            # Models
+            yield Label("  Models", classes="cfg-title")
+            yield SelectionList[str](id="model-list")
+            with Horizontal(id="model-actions"):
+                yield Button("Select All", id="btn-sel-all", variant="default")
+                yield Button("Deselect All", id="btn-desel-all", variant="default")
+                yield Button("↺ Refresh List", id="btn-refresh-models", variant="default")
+
+            # Modes
+            yield Label("  Modes", classes="cfg-title")
+            with Horizontal(id="mode-row"):
+                yield Checkbox("Throughput", id="chk-throughput", value=True)
+                yield Checkbox("Tool Calling", id="chk-tool", value=False)
+                yield Checkbox("Parallel", id="chk-parallel", value=False)
+                yield Button("Full (all)", id="btn-full-mode", variant="default")
+
+            # Parameters
+            yield Label("  Parameters", classes="cfg-title")
+            with Horizontal(id="params-row"):
                 yield Label("Samples:")
-                yield Input(value="10", id="inp-samples")
+                yield Input("10", id="inp-samples")
+                yield Label("Warmup:")
+                yield Input("2", id="inp-warmup")
                 yield Label("Temp:")
-                yield Input(value="0.0", id="inp-temp")
-                yield Label("Max tokens:")
-                yield Input(value="256", id="inp-maxtok")
+                yield Input("0.0", id="inp-temp")
+                yield Label("Max tok:")
+                yield Input("256", id="inp-maxtok")
                 yield Label("Parallel slots:")
-                yield Input(value="4", id="inp-slots")
-            with Horizontal(classes="config-row", id="btn-row"):
+                yield Input("4", id="inp-slots")
+
+            # Action buttons
+            with Horizontal(id="btn-row"):
                 yield Button("▶ Start", id="btn-start", variant="primary")
-                yield Button("■ Stop", id="btn-stop", variant="error")
+                yield Button("■ Stop",  id="btn-stop",  variant="error")
                 yield Button("⬇ Export", id="btn-export", variant="default")
-        with Horizontal(id="progress-bar-row", classes="-hidden"):
+
+        # Progress bar
+        with Horizontal(id="progress-panel", classes="-hidden"):
             yield Label("", id="prog-label")
             yield ProgressBar(id="prog-bar", total=100, show_eta=False)
+
+        # Per-sample results table
         yield DataTable(id="results-table", cursor_type="row")
-        with Vertical(id="comparison-section"):
-            yield Label("  COMPARISON", id="comparison-title")
-            yield ComparisonChart(id="chart")
+
+        # Summary
+        with Vertical(id="summary-panel"):
+            yield Label("  SUMMARY", id="summary-title")
+            yield Static("No results yet.", id="summary-content")
 
     def on_mount(self) -> None:
         table = self.query_one("#results-table", DataTable)
-        table.add_columns("#", "Model", "Mode", "TTFT", "TPS", "TPOT", "In/Out", "Tool✓", "Args", "Load ms")
-        self._results: list = []
-        self._run_count = 0
-        self._stop_requested = False
-        self._update_layout()
+        table.add_columns(
+            "#", "Model", "Mode", "TPS", "TTFT", "TPOT",
+            "Prompt/Out", "Tool✓", "Load ms"
+        )
+        self._load_model_list()
 
-    def on_resize(self) -> None:
-        self._update_layout()
+    def on_show(self) -> None:
+        """Refresh model list when screen becomes visible."""
+        if not self.running:
+            self._load_model_list()
 
-    def _update_layout(self) -> None:
-        stacked = self.size.width < 80
-        for row_id in ("mode-row", "params-row", "btn-row"):
-            try:
-                row = self.query_one(f"#{row_id}")
-                if stacked:
-                    row.add_class("stacked")
-                else:
-                    row.remove_class("stacked")
-            except Exception:
-                pass
+    # ── model list ────────────────────────────────────────────────────────────
 
-    def _config(self) -> dict:
-        def _int(widget_id: str, default: int) -> int:
-            try:
-                return max(1, int(self.query_one(f"#{widget_id}", Input).value or str(default)))
-            except ValueError:
-                return default
-
-        def _float(widget_id: str, default: float) -> float:
-            try:
-                return float(self.query_one(f"#{widget_id}", Input).value or str(default))
-            except ValueError:
-                return default
-
-        return {
-            "mode": str(self.query_one("#sel-mode", Select).value),
-            "prompt_set": str(self.query_one("#sel-prompts", Select).value),
-            "tool_subset": str(self.query_one("#sel-tools", Select).value),
-            "samples": _int("inp-samples", 10),
-            "temperature": _float("inp-temp", 0.0),
-            "max_tokens": _int("inp-maxtok", 256),
-            "parallel_slots": _int("inp-slots", 4),
-        }
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-start" and not self.running:
-            self._start_benchmark()
-        elif event.button.id == "btn-stop":
-            self._stop_requested = True
-            self.running = False
-        elif event.button.id == "btn-export":
-            self._export_results()
-
-    def watch_running(self, running: bool) -> None:
-        prog_row = self.query_one("#progress-bar-row")
-        if running:
-            prog_row.remove_class("-hidden")
-        else:
-            prog_row.add_class("-hidden")
-
-    def _start_benchmark(self) -> None:
+    @work(exclusive=True)
+    async def _load_model_list(self) -> None:
         client = self.app.server_registry.active_client
         if not client:
-            self.notify("No server connected", severity="error")
-            return
-
-        self._stop_requested = False
-        self._run_count = 0
-        self._results = []
-        self.query_one("#results-table", DataTable).clear()
-        self.query_one(ComparisonChart).rows = []
-        self.running = True
-        self._run_benchmark(self._config())
-
-    @work
-    async def _run_benchmark(self, cfg: dict) -> None:
-        from ..benchmark.engine import BenchmarkEngine, BenchmarkSpec
-        from ..benchmark.analysis import detect_winners
-        client = self.app.server_registry.active_client
+            for _ in range(20):
+                await asyncio.sleep(0.25)
+                client = self.app.server_registry.active_client
+                if client:
+                    break
         if not client:
             return
 
         try:
             models = await client.list_models()
-            loaded = [m for m in models if m.is_loaded]
         except Exception as e:
             self.notify(str(e), severity="error")
-            self.running = False
             return
 
-        mode = cfg["mode"]
+        self._model_entries = [
+            _ModelEntry(id=m.id, is_loaded=m.is_loaded, instance_id=m.instance_id)
+            for m in models
+        ]
 
-        # Load time mode doesn't need a loaded model — just any available model
-        if mode == BenchmarkMode.LOAD_TIME:
-            available = models
+        sl = self.query_one("#model-list", SelectionList)
+        sl.clear_options()
+        for m in models:
+            status = "●" if m.is_loaded else "○"
+            label = f"{status} {m.id}"
+            sl.add_option(Selection(label, m.id, initial_state=True))
+
+    # ── events ────────────────────────────────────────────────────────────────
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        match event.button.id:
+            case "btn-start":
+                if not self.running:
+                    self._start_benchmark()
+            case "btn-stop":
+                self._stop = True
+                self.running = False
+            case "btn-export":
+                self._export_results()
+            case "btn-sel-all":
+                self.query_one("#model-list", SelectionList).select_all()
+            case "btn-desel-all":
+                self.query_one("#model-list", SelectionList).deselect_all()
+            case "btn-refresh-models":
+                self._load_model_list()
+            case "btn-full-mode":
+                for chk_id in ("chk-throughput", "chk-tool", "chk-parallel"):
+                    self.query_one(f"#{chk_id}", Checkbox).value = True
+
+    def watch_running(self, running: bool) -> None:
+        prog = self.query_one("#progress-panel")
+        if running:
+            prog.remove_class("-hidden")
         else:
-            available = loaded
+            prog.add_class("-hidden")
 
-        if not available:
-            self.notify("No models available", severity="warning")
+    # ── benchmark orchestration ───────────────────────────────────────────────
+
+    def _config(self) -> dict:
+        def _int(wid: str, default: int) -> int:
+            try:
+                return max(1, int(self.query_one(f"#{wid}", Input).value or str(default)))
+            except ValueError:
+                return default
+
+        def _flt(wid: str, default: float) -> float:
+            try:
+                return float(self.query_one(f"#{wid}", Input).value or str(default))
+            except ValueError:
+                return default
+
+        selected_models = list(self.query_one("#model-list", SelectionList).selected)
+        modes = []
+        if self.query_one("#chk-throughput", Checkbox).value:
+            modes.append(BenchmarkMode.THROUGHPUT)
+        if self.query_one("#chk-tool", Checkbox).value:
+            modes.append(BenchmarkMode.TOOL_CALLING)
+        if self.query_one("#chk-parallel", Checkbox).value:
+            modes.append(BenchmarkMode.PARALLEL)
+
+        return {
+            "selected_models": selected_models,
+            "modes": modes,
+            "samples": _int("inp-samples", 10),
+            "warmup": _int("inp-warmup", 2),
+            "temperature": _flt("inp-temp", 0.0),
+            "max_tokens": _int("inp-maxtok", 256),
+            "parallel_slots": _int("inp-slots", 4),
+        }
+
+    def _start_benchmark(self) -> None:
+        cfg = self._config()
+        if not cfg["selected_models"]:
+            self.notify("Select at least one model", severity="warning")
+            return
+        if not cfg["modes"]:
+            self.notify("Select at least one mode", severity="warning")
+            return
+        client = self.app.server_registry.active_client
+        if not client:
+            self.notify("No server connected", severity="error")
+            return
+
+        self._stop = False
+        self._run_count = 0
+        self._results = []
+        self.query_one("#results-table", DataTable).clear()
+        self.query_one("#summary-content", Static).update("Running…")
+        self.running = True
+        self._run_benchmark(cfg)
+
+    @work
+    async def _run_benchmark(self, cfg: dict) -> None:
+        client = self.app.server_registry.active_client
+        if not client:
             self.running = False
             return
 
-        engine = BenchmarkEngine(client, self.app.metrics_store, self.app.server_registry.active_name)
-        chart_rows: dict[str, ChartRow] = {}
-        for model in available:
-            chart_rows[model.id] = ChartRow(label=model.id, value=None, unit="t/s", pending=True)
+        selected_ids: list[str] = cfg["selected_models"]
+        modes: list[str] = cfg["modes"]
 
-        for model in available:
-            if self._stop_requested:
+        # ── Step 1: Unload all currently loaded models ────────────────────
+        self._set_progress("Unloading all models…", 0)
+        try:
+            models = await client.list_models()
+            for m in models:
+                if m.is_loaded and m.instance_id:
+                    await client.unload_model(m.instance_id)
+                    await asyncio.sleep(0.3)
+        except Exception as e:
+            self.notify(f"Unload failed: {e}", severity="error")
+            self.running = False
+            return
+
+        model_results: dict[str, list[BenchmarkResult]] = {}
+        engine = BenchmarkEngine(
+            client, self.app.metrics_store,
+            self.app.server_registry.active_name
+        )
+
+        total_work = len(selected_ids) * len(modes)
+        work_done = 0
+
+        # ── Step 2: For each selected model ──────────────────────────────
+        for model_id in selected_ids:
+            if self._stop:
                 break
 
-            spec = BenchmarkSpec(
-                model_id=model.id,
-                mode=mode,
-                prompt_set=cfg["prompt_set"],
-                runs=cfg["samples"],
-                warmup=getattr(self.app.config.benchmark, "warmup_runs", 2),
-                temperature=cfg["temperature"],
-                max_tokens=cfg["max_tokens"],
-                tool_subset=cfg["tool_subset"],
-                parallel_slots=cfg["parallel_slots"],
-                parallel_total=cfg["samples"],
+            model_results[model_id] = []
+
+            # ── Load model + capture load time ────────────────────────────
+            self._set_progress(f"Loading  {model_id[:30]}…", 0)
+            try:
+                body: dict = {"model": model_id}
+                ctx = cfg.get("context_length")
+                if ctx:
+                    body["context_length"] = ctx
+                t_wall = time.perf_counter()
+                from ..api.models import LoadResponse
+                raw = await client._post("/api/v1/models/load", body)
+                wall_ms = (time.perf_counter() - t_wall) * 1000.0
+                load_resp = LoadResponse.model_validate(raw)
+                instance_id = load_resp.instance_id
+                # Prefer server's own timing; fall back to wall-clock
+                load_ms = (
+                    load_resp.load_time_seconds * 1000.0
+                    if load_resp.load_time_seconds > 0
+                    else wall_ms
+                )
+            except Exception as e:
+                self.notify(f"Load failed ({model_id}): {e}", severity="error")
+                continue
+
+            # Record a load-time row in the results table
+            self._add_row(
+                model_id, "load",
+                tps=None, ttft_ms=None, tpot_ms=None,
+                prompt_tokens=0, completion_tokens=0,
+                tool_correct=None, load_ms=load_ms,
             )
 
-            self.query_one("#prog-label", Label).update(f"  {model.id}  ")
-            total_runs = cfg["samples"]
-
-            async for event in engine.run(spec):
-                if self._stop_requested:
+            # ── Run each selected mode ────────────────────────────────────
+            for mode in modes:
+                if self._stop:
                     break
 
-                if event.get("type") == "sample":
-                    self._run_count += 1
-                    m: CompletionMetrics = event["metrics"]
-                    table = self.query_one("#results-table", DataTable)
-                    table.add_row(
-                        str(self._run_count),
-                        model.id[:20],
-                        mode[:6],
-                        format_ms(m.time_to_first_token_ms),
-                        format_tps(m.tokens_per_second),
-                        _fmt(m.tpot_ms, 0) + "ms" if m.tpot_ms is not None else "—",
-                        f"{m.prompt_tokens}/{m.completion_tokens}",
-                        "✓" if m.tool_name_correct else ("✗" if m.tool_name_correct is False else "—"),
-                        _fmt(m.tool_args_score, 2) if m.tool_args_score is not None else "—",
-                        _fmt(m.load_time_ms, 0) + "ms" if m.load_time_ms is not None else "—",
-                    )
-                    run_num = event.get("run", self._run_count)
-                    pct = int((run_num / max(total_runs, 1)) * 100)
-                    self.query_one("#prog-bar", ProgressBar).update(progress=pct)
+                samples: list[CompletionMetrics] = []
+                warmup = cfg["warmup"] if mode == BenchmarkMode.THROUGHPUT else 1
 
-                elif event.get("type") == "done":
-                    result = event["result"]
-                    chart_value = result.mean_tps or result.parallel_tps
-                    chart_rows[model.id] = ChartRow(
-                        label=model.id, value=chart_value, unit="t/s", pending=False
-                    )
-                    self.query_one(ComparisonChart).rows = list(chart_rows.values())
+                spec = BenchmarkSpec(
+                    model_id=model_id,
+                    mode=mode,
+                    prompt_set="mixed",
+                    runs=cfg["samples"],
+                    warmup=warmup,
+                    temperature=cfg["temperature"],
+                    max_tokens=cfg["max_tokens"],
+                    tool_subset="all",
+                    parallel_slots=cfg["parallel_slots"],
+                    parallel_total=cfg["samples"],
+                )
+
+                run_num = 0
+                async for event in engine.run(spec):
+                    if self._stop:
+                        break
+                    if event["type"] == "sample":
+                        run_num = event["run"]
+                        m: CompletionMetrics = event["metrics"]
+                        samples.append(m)
+                        self._add_row(
+                            model_id, mode[:6],
+                            tps=m.tokens_per_second,
+                            ttft_ms=m.time_to_first_token_ms,
+                            tpot_ms=m.tpot_ms,
+                            prompt_tokens=m.prompt_tokens,
+                            completion_tokens=m.completion_tokens,
+                            tool_correct=m.tool_name_correct,
+                            load_ms=None,
+                        )
+                        pct = int((run_num / max(cfg["samples"], 1)) * 100)
+                        self._set_progress(
+                            f"{model_id[:20]} | {mode[:10]} | {run_num}/{cfg['samples']}",
+                            pct
+                        )
+                    elif event["type"] == "error":
+                        self.notify(f"Run {event['run']} error: {event['error']}", severity="warning")
+
+                if samples:
+                    result = analyze(samples, model_id, self.app.server_registry.active_name, mode=mode)
+                    model_results[model_id].append(result)
                     self._results.append(result)
 
-        # Winner detection across all models
-        detect_winners(self._results)
+                work_done += 1
+
+            # ── Unload model ──────────────────────────────────────────────
+            try:
+                models_now = await client.list_models()
+                info = next((m for m in models_now if m.id == model_id), None)
+                if info and info.instance_id:
+                    await client.unload_model(info.instance_id)
+                    await asyncio.sleep(0.2)
+            except Exception:
+                pass
+
+        # ── Step 3: Detect winners and show summary ───────────────────────
+        if self._results:
+            detect_winners(self._results)
+            self._update_summary()
 
         self.running = False
-        self.notify("Benchmark complete", severity="information")
+        self._set_progress("", 0)
+        if not self._stop:
+            self.notify("Benchmark complete", severity="information")
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _set_progress(self, label: str, pct: int) -> None:
+        try:
+            self.query_one("#prog-label", Label).update(f"  {label}  ")
+            self.query_one("#prog-bar", ProgressBar).update(progress=pct)
+        except Exception:
+            pass
+
+    def _add_row(
+        self,
+        model_id: str,
+        mode: str,
+        *,
+        tps: float | None,
+        ttft_ms: float | None,
+        tpot_ms: float | None,
+        prompt_tokens: int,
+        completion_tokens: int,
+        tool_correct: bool | None,
+        load_ms: float | None,
+    ) -> None:
+        self._run_count += 1
+        table = self.query_one("#results-table", DataTable)
+        tool_str = (
+            "✓" if tool_correct is True
+            else "✗" if tool_correct is False
+            else "—"
+        )
+        table.add_row(
+            str(self._run_count),
+            model_id[:22],
+            mode,
+            format_tps(tps),
+            format_ms(ttft_ms),
+            _fmt(tpot_ms, 0, "ms") if tpot_ms is not None else "—",
+            f"{prompt_tokens}/{completion_tokens}" if prompt_tokens or completion_tokens else "—",
+            tool_str,
+            _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
+        )
+
+    def _update_summary(self) -> None:
+        lines: list[str] = []
+        # Group results by model_id
+        by_model: dict[str, list[BenchmarkResult]] = {}
+        for r in self._results:
+            by_model.setdefault(r.model_id, []).append(r)
+
+        for model_id, results in by_model.items():
+            parts = [f"[bold]{model_id[:28]}[/bold]"]
+            for r in results:
+                mode_tag = r.mode[:5]
+                if r.mode == BenchmarkMode.THROUGHPUT:
+                    w = " [bold yellow]★[/bold yellow]" if r.winner_tps else ""
+                    parts.append(f"  TPS {_fmt(r.mean_tps)}{w} | TTFT {format_ms(r.mean_ttft_ms)} | TPOT {_fmt(r.mean_tpot_ms, 0)}ms")
+                elif r.mode == BenchmarkMode.TOOL_CALLING:
+                    w = " [bold yellow]★[/bold yellow]" if r.winner_tool_accuracy else ""
+                    parts.append(f"  Tool name {_pct(r.tool_name_accuracy)}{w} | args {_fmt(r.mean_tool_args_score, 2)}")
+                elif r.mode == BenchmarkMode.PARALLEL:
+                    w = " [bold yellow]★[/bold yellow]" if r.winner_tps else ""
+                    parts.append(f"  Parallel TPS {_fmt(r.parallel_tps)}{w}")
+            lines.append("\n".join(parts))
+
+        self.query_one("#summary-content", Static).update("\n\n".join(lines))
 
     def _export_results(self) -> None:
         if not self._results:
             self.notify("No results to export", severity="warning")
             return
-        self._do_export(self._results)
+        self._do_export(list(self._results))
 
     @work
     async def _do_export(self, results: list) -> None:
         from ..benchmark.export import ReportExporter
-        import pathlib, time
+        import pathlib
         export_dir = pathlib.Path(self.app.config.benchmark.export_dir).expanduser()
         ts = time.strftime("%Y%m%d-%H%M%S")
         exporter = ReportExporter(export_dir)
-        paths = exporter.export_all(results, f"benchmark-{ts}")
+        exporter.export_all(results, f"benchmark-{ts}")
         self.notify(f"Exported to {export_dir}", severity="information")
