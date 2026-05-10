@@ -62,6 +62,7 @@ class ModelManager(Widget):
         table.add_column("Ctx", width=6)
         table.add_column("VRAM", width=6)
         self._dl_timer = None
+        self._dl_client = None  # Store client for download poll
         self.action_refresh()
 
     def on_unmount(self) -> None:
@@ -152,7 +153,7 @@ class ModelManager(Widget):
         try:
             cell = table.get_cell_at((table.cursor_row, 0))
             return str(cell)
-        except Exception:
+        except (IndexError, KeyError):
             return None
 
     @work
@@ -196,11 +197,12 @@ class ModelManager(Widget):
         try:
             await client.download_model(model_id)
             self.notify(f"Download started: {model_id}")
-            self._start_download_poll()
+            self._start_download_poll(client)
         except Exception as e:
             self.notify(str(e), severity="error")
 
-    def _start_download_poll(self) -> None:
+    def _start_download_poll(self, client) -> None:
+        self._dl_client = client
         dl_bar = self.query_one("#dl-bar")
         dl_bar.remove_class("-hidden")
         if self._dl_timer:
@@ -209,7 +211,7 @@ class ModelManager(Widget):
 
     @work(exclusive=True)
     async def _poll_download(self) -> None:
-        client = self.app.server_registry.active_client
+        client = self._dl_client or self.app.server_registry.active_client
         if not client:
             return
         status = await client.get_download_status()
