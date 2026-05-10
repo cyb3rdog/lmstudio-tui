@@ -1,0 +1,65 @@
+/* ── App-level layout ─────────────────────────────────────────────────────── */
+
+#main-layout {
+    width: 1fr;
+    height: 1fr;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+
+#sidebar {
+    width: 22;
+    height: 1fr;
+    background: $surface-darken-1;
+    border-right: solid $primary-darken-3;
+}
+
+#sidebar-title {
+    padding: 1 1;
+    text-style: bold;
+    color: $primary;
+    height: 3;
+    border-bottom: solid $primary-darken-3;
+}
+
+#nav-list {
+    height: 1fr;
+    background: $surface-darken-1;
+    border: none;
+    padding: 0;
+}
+
+#nav-list > ListItem {
+    padding: 0;
+    background: $surface-darken-1;
+}
+
+#nav-list > ListItem:hover {
+    background: $primary-darken-2;
+}
+
+#nav-list > ListItem.--highlight {
+    background: $primary-darken-1;
+    color: $text;
+}
+
+/* ── Content area ─────────────────────────────────────────────────────────── */
+
+#content-area {
+    width: 1fr;
+    height: 1fr;
+}
+
+/* ── Status colors (global) ───────────────────────────────────────────────── */
+
+.status-connected    { color: $success; }
+.status-connecting   { color: $warning; }
+.status-disconnected { color: $text-muted; }
+.status-error        { color: $error; }
+
+/* ── Section headings ─────────────────────────────────────────────────────── */
+
+.section-title {
+    text-style: bold;
+    color: $primary;
+}
