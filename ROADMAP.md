@@ -74,7 +74,7 @@ All critical and high-priority issues have been resolved. The TUI is production-
 | Feature | Priority | Effort | Description |
 |---------|----------|--------|-------------|
 | Bench-1 | HIGH | 3d | Multi-model comparison matrix |
-| Bench-2 | HIGH | 2d | Statistical significance testing |
+| Bench-2 | HIGH | 2d | Statistical significance testing (std dev, confidence intervals) |
 | Bench-3 | HIGH | 2d | Export to CSV/JSON with full metrics |
 | Bench-4 | MEDIUM | 2d | Prompt set library (creative, code, chat, reasoning) |
 | Bench-5 | MEDIUM | 2d | Concurrent benchmark runs |
@@ -108,6 +108,14 @@ All critical and high-priority issues have been resolved. The TUI is production-
 
 ## Benchmark Requirements (Inspired by benchmark-lmstudio.py)
 
+### Benchmark Modes
+
+| Mode | Description | Includes |
+|------|-------------|----------|
+| **quick** | Throughput only (default) | TPS, TTFT, basic metrics |
+| **tool** | Throughput + tool calling | All quick metrics + tool accuracy |
+| **full** | Load time + throughput + tool calling | All metrics + model load time |
+
 ### Core Metrics to Track
 
 | Metric | Source | Description |
@@ -118,50 +126,99 @@ All critical and high-priority issues have been resolved. The TUI is production-
 | **VRAM Usage** | Hardware endpoint | GPU memory consumption |
 | **Context Length** | Config | Model context window |
 | **Batch Size** | Config | Concurrent requests |
+| **Reasoning Tokens** | `reasoning_content` | Chain-of-thought token count |
+| **Tool Accuracy** | Tool schema validation | Correct tool calls / total |
 
 ### Prompt Sets for Comprehensive Testing
 
-| Set | Purpose | Sample Size |
-|-----|---------|-------------|
-| **creative** | Story generation, creative writing | 10 prompts |
-| **code** | Code completion, debugging | 10 prompts |
-| **chat** | Conversational AI, Q&A | 10 prompts |
-| **reasoning** | Logic puzzles, math problems | 10 prompts |
-| **mixed** | Balanced across all categories | 20 prompts |
+| Set | Purpose | Sample Size | Example Prompts |
+|-----|---------|-------------|-----------------|
+| **creative** | Story generation, creative writing | 10 prompts | "Write a sci-fi story about AI..." |
+| **code** | Code completion, debugging | 10 prompts | "Fix this Python bug: ..." |
+| **chat** | Conversational AI, Q&A | 10 prompts | "Explain quantum computing..." |
+| **reasoning** | Logic puzzles, math problems | 10 prompts | "If X=5 and Y=X*3..." |
+| **mixed** | Balanced across all categories | 20 prompts | Rotating selection |
 
-### Benchmark Output Structure
+### Benchmark Output Formats
+
+| Format | Use Case | Structure |
+|--------|----------|-----------|
+| **text** | Human inspection (TTY) | Bar charts, winner verdict |
+| **json** | Machine parsing | Full session with statistics |
+| **csv** | Spreadsheet import | One row per model summary |
+| **csv-full** | Detailed analysis | One row per run |
+
+### JSON Output Structure
 
 ```json
 {
-  "run_id": "uuid",
-  "timestamp": "ISO8601",
-  "server": "endpoint",
-  "model": "model-key",
-  "prompt_set": "mixed",
+  "session_id": "20260510173000",
+  "timestamp": "2026-05-10T17:30:00",
+  "server": "https://lmstudio.phact.cz",
+  "mode": "quick",
   "config": {
+    "runs_per_phase": 3,
+    "timeout_s": 120,
     "temperature": 0.2,
-    "max_tokens": 512,
-    "samples": 10,
-    "warmup": 2
+    "max_tokens": 512
+  },
+  "summary": {
+    "total_models": 12,
+    "successful_models": 10,
+    "failed_models": 2,
+    "total_tokens": 12500,
+    "duration_s": 180
+  },
+  "winners": {
+    "throughput": {"model_id": "model-x", "tps": 45.2},
+    "tool": {"model_id": "model-y", "accuracy_pct": 100.0}
   },
   "results": [
     {
-      "prompt_id": 1,
-      "prompt": "...",
-      "ttft_ms": 125,
-      "tps": 42.5,
-      "total_tokens": 128,
-      "total_time_ms": 3012
+      "model_id": "model-x",
+      "model_state": "loaded",
+      "load_time_ms": 15000,
+      "warm": {
+        "tps_avg": 45.2,
+        "tps_min": 42.1,
+        "tps_max": 48.3,
+        "ttft_avg_ms": 1250,
+        "successes": 3,
+        "total_tokens": 3840,
+        "reasoning_tokens": 150
+      },
+      "tool": {
+        "tps_avg": 0,
+        "tool_calls_made": 0
+      },
+      "runs": [
+        {
+          "phase": "warm",
+          "success": true,
+          "elapsed_ms": 2100,
+          "tokens": 128,
+          "tps": 45.2,
+          "ttft_ms": 1250,
+          "prompt_tokens": 15,
+          "reasoning_tokens": 5,
+          "has_tool": false
+        }
+      ]
     }
-  ],
-  "statistics": {
-    "avg_tps": 45.2,
-    "avg_ttft_ms": 132,
-    "std_dev_tps": 5.3,
-    "median_tps": 44.8
-  }
+  ]
 }
 ```
+
+### Advanced Features from benchmark-lmstudio.py
+
+| Feature | Description |
+|---------|-------------|
+| **Winner Detection** | Identifies best model per category (throughput, tool accuracy) |
+| **Load Time Tracking** | Measures JIT model loading time separately |
+| **Statistical Aggregation** | Min/max/avg/stddev for TPS and TTFT |
+| **Reasoning Token Detection** | Extracts `reasoning_content` token count |
+| **Tool Call Validation** | Validates tool arguments against expected result |
+| **Session Export** | Saves full results to JSON file |
 
 ---
 
