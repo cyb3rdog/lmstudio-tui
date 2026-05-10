@@ -36,7 +36,6 @@ class ModelInfo(BaseModel):
     quantization: str | None = None
     instance_id: str | None = None
     # Load configuration — NOT returned by LM Studio v1 /api/v1/models
-    # These stay None; they are populated from load_model response when needed.
     gpu_layers: int | None = None
     context_length: int | None = None
     kv_cache_type: str | None = None
@@ -48,7 +47,6 @@ class ModelInfo(BaseModel):
     @field_validator("id", mode="before")
     @classmethod
     def _coerce_id(cls, v: object) -> str:
-        """Accept 'key' (LM Studio) or 'id' (OpenAI)."""
         if isinstance(v, str):
             return v
         return str(v) if v is not None else ""
@@ -56,7 +54,6 @@ class ModelInfo(BaseModel):
     @field_validator("quantization", mode="before")
     @classmethod
     def _coerce_quantization(cls, v: object) -> str | None:
-        """Accept quantization.name (LM Studio dict) or a plain str."""
         if v is None:
             return None
         if isinstance(v, str):
@@ -68,11 +65,9 @@ class ModelInfo(BaseModel):
     @field_validator("state", mode="before")
     @classmethod
     def _coerce_state(cls, v: object) -> object:
-        """Accept unknown state strings gracefully instead of crashing.
+        """Accept unknown state strings gracefully.
 
-        Handles str, ModelState enum, and None.  Uses .value to avoid the
-        Python 3.11 behaviour where str(StrEnum.member) returns 'Class.NAME'
-        rather than the underlying string value.
+        Uses .value to avoid Python 3.11 str(StrEnum) → 'Class.NAME' behaviour.
         """
         if v is None:
             return None
@@ -86,15 +81,12 @@ class ModelInfo(BaseModel):
 
     @property
     def is_loaded(self) -> bool:
-        """True when the model has at least one loaded instance."""
         return self.instance_id is not None or self.state == ModelState.LOADED
 
 
 class ModelsResponse(BaseModel):
-    """Accepts both the LM Studio schema ({"models": [...]}) and the
-    OpenAI-compatible schema ({"data": [...]})."""
+    """Accepts both LM Studio ({"models": [...]}) and OpenAI ({"data": [...]}) schemas."""
 
-    # At least one of these will be populated; use whichever the server sent.
     models: list[ModelInfo] = Field(default_factory=list)
     data: list[ModelInfo] = Field(default_factory=list)
 
@@ -104,32 +96,23 @@ class ModelsResponse(BaseModel):
 
     @classmethod
     def from_raw(cls, raw: dict) -> "ModelsResponse":
-        """Parse raw server JSON, handling the 'models' (LM Studio) or 'data'
-        (OpenAI) top-level key, and extracting instance_ids from the nested
-        loaded_instances array."""
-
         def _extract_instance_id(m: dict) -> str | None:
             li = m.get("loaded_instances", [])
             return li[0].get("id") if li else None
 
         def _normalize(m: dict) -> dict:
-            """Flatten LM Studio-specific fields so Pydantic can validate them."""
-            instance_id = _extract_instance_id(m)
             return {
                 **m,
                 "id": m.get("key") or m.get("id", ""),
-                "instance_id": instance_id,
+                "instance_id": _extract_instance_id(m),
                 "quantization": m.get("quantization"),
             }
 
         if "models" in raw:
-            normalized = [_normalize(m) for m in raw["models"]]
-            return cls(models=normalized)
+            return cls(models=[_normalize(m) for m in raw["models"]])
         elif "data" in raw:
             return cls(data=raw["data"])
-        else:
-            # Empty or malformed — return empty list
-            return cls()
+        return cls()
 
 
 class LoadRequest(BaseModel):
@@ -139,13 +122,11 @@ class LoadRequest(BaseModel):
 
 
 class LoadResponse(BaseModel):
-    """Response from POST /api/v1/models/load."""
-
     instance_id: str
-    model: str = ""          # may be omitted by server
-    type: str = "llm"       # may be omitted
-    load_time_seconds: float = 0.0   # informational only
-    status: str = ""         # "loaded" — informational only
+    model: str = ""
+    type: str = "llm"
+    load_time_seconds: float = 0.0
+    status: str = ""
 
 
 class UnloadRequest(BaseModel):
@@ -154,8 +135,8 @@ class UnloadRequest(BaseModel):
 
 class DownloadStatus(BaseModel):
     model: str = ""
-    status: str = ""        # "downloading" | "complete" | "error"
-    progress: float = 0.0   # 0.0 – 1.0
+    status: str = ""
+    progress: float = 0.0
     bytes_downloaded: int | None = None
     bytes_total: int | None = None
 
@@ -163,6 +144,8 @@ class DownloadStatus(BaseModel):
 class ChatMessage(BaseModel):
     role: str
     content: str | list[Any]
+    tool_call_id: str | None = None
+    tool_calls: list[Any] | None = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -173,6 +156,9 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = 0.0
     top_p: float | None = None
     repeat_penalty: float | None = None
+    # Tool calling
+    tools: list[dict] | None = None
+    tool_choice: str | dict | None = None
 
 
 class CompletionRequest(BaseModel):
@@ -190,10 +176,26 @@ class UsageStats(BaseModel):
 
 
 class CompletionMetrics(BaseModel):
-    """Performance metrics from a single inference call."""
+    """Performance metrics from a single inference call.
+
+    All timing fields are wall-clock measurements (LM Studio's stats{} is always empty).
+    Fields added for agentic benchmarking are optional and default to neutral values.
+    """
+
     model_id: str = ""
+    # Throughput
     tokens_per_second: float | None = None
-    time_to_first_token_ms: float | None = None
+    time_to_first_token_ms: float | None = None   # requires streaming
+    tpot_ms: float | None = None                   # time-per-output-token (streaming)
     total_duration_ms: float | None = None
+    # Token counts
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    reasoning_tokens: int = 0                      # from reasoning_content field
+    # Tool calling (populated only in tool mode)
+    tool_called: bool = False
+    tool_name_correct: bool | None = None          # None = not evaluated
+    tool_args_score: float | None = None           # 0.0–1.0 fuzzy match
+    # Load time (populated only in load mode)
+    load_time_ms: float | None = None
+    was_jit: bool = False                          # first run detected JIT load

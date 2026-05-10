@@ -1,18 +1,24 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
-from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Button, DataTable, Input, Label, ProgressBar, Select, Static
 from textual import work
 
 from ..api.models import CompletionMetrics
+from ..benchmark.engine import BenchmarkMode
 from ..utils.formatting import format_ms, format_tps
 from ..widgets.comparison_chart import ChartRow, ComparisonChart
+
+
+def _fmt(v: float | None, decimals: int = 1) -> str:
+    return f"{v:.{decimals}f}" if v is not None else "—"
+
+
+def _pct(v: float | None) -> str:
+    return f"{v * 100:.1f}%" if v is not None else "—"
 
 
 class BenchmarkRunner(Widget):
@@ -23,25 +29,36 @@ class BenchmarkRunner(Widget):
     }
     BenchmarkRunner #config-panel {
         height: auto;
-        padding: 1;
+        padding: 0 1;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
     }
-    BenchmarkRunner #config-row { height: auto; }
-    BenchmarkRunner #config-row.stacked { layout: vertical; }
-    BenchmarkRunner #config-row Label { margin: 0 1; width: auto; }
-    BenchmarkRunner #config-row Input { width: 8; }
-    BenchmarkRunner #config-row Select { width: 18; }
+    BenchmarkRunner .config-row {
+        height: auto;
+        padding: 0;
+        align: left middle;
+    }
+    BenchmarkRunner .config-row.stacked { layout: vertical; }
+    BenchmarkRunner .config-row Label { margin: 0 1; width: auto; }
+    BenchmarkRunner .config-row Input { width: 8; }
+    BenchmarkRunner .config-row Select { width: 20; }
+    BenchmarkRunner #mode-row { height: 3; }
+    BenchmarkRunner #params-row { height: 3; }
+    BenchmarkRunner #btn-row { height: 3; }
+    BenchmarkRunner #btn-row Button { margin: 0 1 0 0; }
     BenchmarkRunner #progress-bar-row {
         height: 3;
         padding: 0 1;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
+        align: left middle;
     }
     BenchmarkRunner #progress-bar-row.-hidden { display: none; }
+    BenchmarkRunner #prog-bar { width: 1fr; }
     BenchmarkRunner #results-table { height: 1fr; }
     BenchmarkRunner #comparison-section {
         height: auto;
+        max-height: 10;
         border-top: solid $primary-darken-3;
         padding: 0 1;
     }
@@ -51,15 +68,24 @@ class BenchmarkRunner(Widget):
         padding: 0 1;
         height: 1;
     }
-    BenchmarkRunner #btn-row { height: auto; padding: 0; }
-    BenchmarkRunner #btn-row Button { margin: 0 1 0 0; }
     """
 
     running: reactive[bool] = reactive(False)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="config-panel"):
-            with Horizontal(id="config-row"):
+            with Horizontal(classes="config-row", id="mode-row"):
+                yield Label("Mode:")
+                yield Select(
+                    [
+                        (BenchmarkMode.THROUGHPUT, "throughput"),
+                        (BenchmarkMode.TOOL_CALLING, "tool_calling"),
+                        (BenchmarkMode.LOAD_TIME, "load_time"),
+                        (BenchmarkMode.PARALLEL, "parallel"),
+                    ],
+                    value=BenchmarkMode.THROUGHPUT,
+                    id="sel-mode",
+                )
                 yield Label("Prompt set:")
                 yield Select(
                     [("short", "short"), ("medium", "medium"), ("long", "long"),
@@ -67,17 +93,26 @@ class BenchmarkRunner(Widget):
                     value="mixed",
                     id="sel-prompts",
                 )
+                yield Label("Tool subset:")
+                yield Select(
+                    [("all", "all"), ("calculator", "calculator"), ("weather", "weather"),
+                     ("string", "string"), ("search", "search")],
+                    value="all",
+                    id="sel-tools",
+                )
+            with Horizontal(classes="config-row", id="params-row"):
                 yield Label("Samples:")
                 yield Input(value="10", id="inp-samples")
                 yield Label("Temp:")
                 yield Input(value="0.0", id="inp-temp")
                 yield Label("Max tokens:")
                 yield Input(value="256", id="inp-maxtok")
-                # btn-row is INSIDE config-row so it stacks with it in portrait mode
-                with Horizontal(id="btn-row"):
-                    yield Button("▶ Start", id="btn-start", variant="primary")
-                    yield Button("■ Stop", id="btn-stop", variant="error")
-                    yield Button("⬇ Export", id="btn-export", variant="default")
+                yield Label("Parallel slots:")
+                yield Input(value="4", id="inp-slots")
+            with Horizontal(classes="config-row", id="btn-row"):
+                yield Button("▶ Start", id="btn-start", variant="primary")
+                yield Button("■ Stop", id="btn-stop", variant="error")
+                yield Button("⬇ Export", id="btn-export", variant="default")
         with Horizontal(id="progress-bar-row", classes="-hidden"):
             yield Label("", id="prog-label")
             yield ProgressBar(id="prog-bar", total=100, show_eta=False)
@@ -88,31 +123,48 @@ class BenchmarkRunner(Widget):
 
     def on_mount(self) -> None:
         table = self.query_one("#results-table", DataTable)
-        table.add_columns("#", "Model", "TTFT", "TPS", "In / Out", "Total ms")
+        table.add_columns("#", "Model", "Mode", "TTFT", "TPS", "TPOT", "In/Out", "Tool✓", "Args", "Load ms")
         self._results: list = []
         self._run_count = 0
         self._stop_requested = False
-        self._update_config_layout()
+        self._update_layout()
 
     def on_resize(self) -> None:
-        self._update_config_layout()
+        self._update_layout()
 
-    def _update_config_layout(self) -> None:
-        try:
-            row = self.query_one("#config-row")
-            if self.size.width < 70:
-                row.add_class("stacked")
-            else:
-                row.remove_class("stacked")
-        except Exception:
-            pass
+    def _update_layout(self) -> None:
+        stacked = self.size.width < 80
+        for row_id in ("mode-row", "params-row", "btn-row"):
+            try:
+                row = self.query_one(f"#{row_id}")
+                if stacked:
+                    row.add_class("stacked")
+                else:
+                    row.remove_class("stacked")
+            except Exception:
+                pass
 
     def _config(self) -> dict:
+        def _int(widget_id: str, default: int) -> int:
+            try:
+                return max(1, int(self.query_one(f"#{widget_id}", Input).value or str(default)))
+            except ValueError:
+                return default
+
+        def _float(widget_id: str, default: float) -> float:
+            try:
+                return float(self.query_one(f"#{widget_id}", Input).value or str(default))
+            except ValueError:
+                return default
+
         return {
+            "mode": str(self.query_one("#sel-mode", Select).value),
             "prompt_set": str(self.query_one("#sel-prompts", Select).value),
-            "samples": max(1, int(self.query_one("#inp-samples", Input).value or "10")),
-            "temperature": float(self.query_one("#inp-temp", Input).value or "0.0"),
-            "max_tokens": int(self.query_one("#inp-maxtok", Input).value or "256"),
+            "tool_subset": str(self.query_one("#sel-tools", Select).value),
+            "samples": _int("inp-samples", 10),
+            "temperature": _float("inp-temp", 0.0),
+            "max_tokens": _int("inp-maxtok", 256),
+            "parallel_slots": _int("inp-slots", 4),
         }
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -148,6 +200,7 @@ class BenchmarkRunner(Widget):
     @work
     async def _run_benchmark(self, cfg: dict) -> None:
         from ..benchmark.engine import BenchmarkEngine, BenchmarkSpec
+        from ..benchmark.analysis import detect_winners
         client = self.app.server_registry.active_client
         if not client:
             return
@@ -160,59 +213,79 @@ class BenchmarkRunner(Widget):
             self.running = False
             return
 
-        if not loaded:
-            self.notify("No models are currently loaded", severity="warning")
+        mode = cfg["mode"]
+
+        # Load time mode doesn't need a loaded model — just any available model
+        if mode == BenchmarkMode.LOAD_TIME:
+            available = models
+        else:
+            available = loaded
+
+        if not available:
+            self.notify("No models available", severity="warning")
             self.running = False
             return
 
         engine = BenchmarkEngine(client, self.app.metrics_store, self.app.server_registry.active_name)
-
         chart_rows: dict[str, ChartRow] = {}
-        for model in loaded:
+        for model in available:
             chart_rows[model.id] = ChartRow(label=model.id, value=None, unit="t/s", pending=True)
 
-        for model in loaded:
+        for model in available:
             if self._stop_requested:
                 break
 
             spec = BenchmarkSpec(
                 model_id=model.id,
+                mode=mode,
                 prompt_set=cfg["prompt_set"],
                 runs=cfg["samples"],
+                warmup=getattr(self.app.config.benchmark, "warmup_runs", 2),
                 temperature=cfg["temperature"],
                 max_tokens=cfg["max_tokens"],
-                warmup=self.app.config.benchmark.warmup_runs,
+                tool_subset=cfg["tool_subset"],
+                parallel_slots=cfg["parallel_slots"],
+                parallel_total=cfg["samples"],
             )
 
-            self.query_one("#prog-label", Label).update(f"  Running: {model.id}  ")
+            self.query_one("#prog-label", Label).update(f"  {model.id}  ")
+            total_runs = cfg["samples"]
+
             async for event in engine.run(spec):
                 if self._stop_requested:
                     break
+
                 if event.get("type") == "sample":
                     self._run_count += 1
                     m: CompletionMetrics = event["metrics"]
                     table = self.query_one("#results-table", DataTable)
                     table.add_row(
                         str(self._run_count),
-                        model.id[:28],
+                        model.id[:20],
+                        mode[:6],
                         format_ms(m.time_to_first_token_ms),
                         format_tps(m.tokens_per_second),
+                        _fmt(m.tpot_ms, 0) + "ms" if m.tpot_ms is not None else "—",
                         f"{m.prompt_tokens}/{m.completion_tokens}",
-                        f"{m.total_duration_ms:.0f}" if m.total_duration_ms else "—",
+                        "✓" if m.tool_name_correct else ("✗" if m.tool_name_correct is False else "—"),
+                        _fmt(m.tool_args_score, 2) if m.tool_args_score is not None else "—",
+                        _fmt(m.load_time_ms, 0) + "ms" if m.load_time_ms is not None else "—",
                     )
-                    pct = int((event["run"] / spec.runs) * 100)
+                    run_num = event.get("run", self._run_count)
+                    pct = int((run_num / max(total_runs, 1)) * 100)
                     self.query_one("#prog-bar", ProgressBar).update(progress=pct)
 
                 elif event.get("type") == "done":
                     result = event["result"]
+                    chart_value = result.mean_tps or result.parallel_tps
                     chart_rows[model.id] = ChartRow(
-                        label=model.id,
-                        value=result.mean_tps,
-                        unit="t/s",
-                        pending=False,
+                        label=model.id, value=chart_value, unit="t/s", pending=False
                     )
                     self.query_one(ComparisonChart).rows = list(chart_rows.values())
                     self._results.append(result)
+
+        # Winner detection across all models
+        detect_winners(self._results)
 
         self.running = False
         self.notify("Benchmark complete", severity="information")
