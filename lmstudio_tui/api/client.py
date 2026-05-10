@@ -308,7 +308,9 @@ class LMStudioClient:
         if total_ms > 0 and completion_tokens > 0:
             tps = (completion_tokens / total_ms) * 1000.0
 
-        reasoning_tokens = len(reasoning_parts)  # character-level proxy; tokens not available
+        # reasoning_tokens: chunk count, not real token count — LM Studio's /v1/chat/completions
+        # does not split completion_tokens_details for reasoning. This is a proxy only.
+        reasoning_tokens = len(reasoning_parts)
 
         # Tool call evaluation
         tool_called = bool(tool_calls_acc)
@@ -363,6 +365,10 @@ class LMStudioClient:
 
         Sends a minimal probe request and returns (instance_id, metrics) with
         load_time_ms and was_jit populated. The model must NOT be loaded yet.
+
+        Uses LM Studio's load_time_seconds from the load response as the
+        authoritative load metric (excludes HTTP overhead). Falls back to
+        wall-clock if the server returns 0.
         """
         from .models import ChatMessage
 
@@ -370,10 +376,18 @@ class LMStudioClient:
         models = await self.list_models()
         already_loaded = any(m.id == model_id and m.is_loaded for m in models)
 
-        load_start = time.perf_counter()
-        req = LoadRequest(model=model_id, context_length=context_length)
-        instance_id = await self.load_model(req)
-        load_ms = (time.perf_counter() - load_start) * 1000.0
+        body: dict[str, Any] = {"model": model_id}
+        if context_length and context_length > 0:
+            body["context_length"] = context_length
+
+        t_wall = time.perf_counter()
+        data = await self._post("/api/v1/models/load", body)
+        wall_ms = (time.perf_counter() - t_wall) * 1000.0
+
+        load_resp = LoadResponse.model_validate(data)
+        instance_id = load_resp.instance_id
+        # Prefer server's measurement (pure GPU/CPU load, excludes HTTP latency)
+        load_ms = load_resp.load_time_seconds * 1000.0 if load_resp.load_time_seconds > 0 else wall_ms
 
         chat_req = ChatCompletionRequest(
             model=model_id,
