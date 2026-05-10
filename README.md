@@ -43,7 +43,7 @@ lmstudio-tui
 ### With Server Configuration
 
 ```bash
-lmstudio-tui --endpoint https://lmstudio.phact.cz --api-key your-key
+lmstudio-tui --endpoint https://your-server.com --api-key your-api-key
 ```
 
 ### Command Line Options
@@ -53,8 +53,8 @@ usage: lmstudio-tui [-h] [--endpoint ENDPOINT] [--api-key API_KEY]
 
 options:
   -h, --help            show this help message and exit
-  --endpoint ENDPOINT   LM Studio server endpoint
-  --api-key API_KEY     API key for authentication
+  --endpoint ENDPOINT   LM Studio server endpoint (e.g., https://lmstudio.example.com)
+  --api-key API_KEY     API key for authentication (from LM Studio settings)
 ```
 
 ## Configuration
@@ -62,12 +62,12 @@ options:
 Configuration is stored at `~/.lmstudio-tui/config.toml`:
 
 ```toml
-active_server = "LMStudio"
+active_server = "MyServer"
 
 [[servers]]
-name = "LMStudio"
-endpoint = "https://lmstudio.phact.cz"
-api_key = "your-api-key"
+name = "MyServer"
+endpoint = "https://lmstudio.example.com"
+api_key = "your-api-key-here"
 
 [benchmark]
 default_prompt_set = "mixed"

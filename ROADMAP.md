@@ -154,7 +154,7 @@ All critical and high-priority issues have been resolved. The TUI is production-
 {
   "session_id": "20260510173000",
   "timestamp": "2026-05-10T17:30:00",
-  "server": "https://lmstudio.phact.cz",
+  "server": "https://lmstudio.example.com",
   "mode": "quick",
   "config": {
     "runs_per_phase": 3,
