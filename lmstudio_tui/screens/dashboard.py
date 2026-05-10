@@ -6,9 +6,9 @@ from textual.widget import Widget
 from textual.widgets import Label, Static
 from textual import work
 
-from ..api.models import ModelInfo, ModelState
+from ..api.models import ModelInfo
 from ..state.server_registry import ConnectionState
-from ..utils.formatting import format_ctx, format_ms, format_tps
+from ..utils.formatting import format_ctx
 from ..widgets.model_card import ModelCard
 
 
@@ -30,7 +30,8 @@ class Dashboard(Widget):
         height: 1fr;
     }
     Dashboard #unloaded-bar {
-        height: 3;
+        height: auto;
+        min-height: 2;
         padding: 0 1;
         background: $surface-darken-1;
         border-top: solid $primary-darken-3;
@@ -39,7 +40,7 @@ class Dashboard(Widget):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("", id="server-bar")
+        yield Static("  Connecting…", id="server-bar")
         with ScrollableContainer(id="models-scroll"):
             yield Vertical(id="model-cards")
         yield Static("", id="unloaded-bar")
@@ -68,8 +69,8 @@ class Dashboard(Widget):
                 conn.models = models
                 ping_str = f"{conn.ping_ms:.0f}ms" if conn.ping_ms else "—"
                 server_bar.update(
-                    f"  Server: [bold]{conn.config.endpoint}[/bold]   "
-                    f"[green]● Connected[/green]   Ping: {ping_str}"
+                    f"  [bold]{conn.config.endpoint}[/bold]   "
+                    f"[green]● Connected[/green]   {ping_str}"
                 )
                 self._render_models(models)
             except Exception as e:
@@ -79,7 +80,7 @@ class Dashboard(Widget):
         else:
             err = conn.last_error or "unreachable"
             server_bar.update(
-                f"  Server: {conn.config.endpoint}   [red]✗ {err}[/red]"
+                f"  {conn.config.endpoint}   [red]✗ {err}[/red]"
             )
 
     def _render_models(self, models: list[ModelInfo]) -> None:
@@ -88,20 +89,24 @@ class Dashboard(Widget):
 
         container = self.query_one("#model-cards", Vertical)
 
-        existing_ids = {w._model.id for w in container.query(ModelCard)}
-        new_ids = {m.id for m in loaded}
+        existing: dict[str, ModelCard] = {
+            card._model.id: card for card in container.query(ModelCard)
+        }
+        loaded_ids = {m.id for m in loaded}
 
         # Remove cards for models no longer loaded
-        for card in list(container.query(ModelCard)):
-            if card._model.id not in new_ids:
+        for mid, card in list(existing.items()):
+            if mid not in loaded_ids:
                 card.remove()
 
-        # Add cards for newly loaded models
+        # Add cards for newly loaded models; refresh model data on existing ones
         for model in loaded:
-            if model.id not in existing_ids:
-                container.mount(ModelCard(model, id=f"card-{model.id.replace('/', '-').replace('.', '-')}"))
+            if model.id in existing:
+                existing[model.id].refresh_model(model)
+            else:
+                container.mount(ModelCard(model))
 
-        # Update metrics on existing cards
+        # Push latest metrics into cards
         store = self.app.metrics_store
         active = self.app.server_registry.active_name
         for card in container.query(ModelCard):
@@ -109,11 +114,13 @@ class Dashboard(Widget):
             ttft = store.get_ttft_series(active, card._model.id)
             card.update_metrics(tps, ttft)
 
-        # Update unloaded bar
+        # Unloaded bar — wrap long lists across two lines on narrow screens
         unloaded_bar = self.query_one("#unloaded-bar", Static)
         if unloaded:
-            names = "  |  ".join(m.id for m in unloaded[:8])
-            suffix = f"  … +{len(unloaded) - 8}" if len(unloaded) > 8 else ""
+            visible = unloaded[:10]
+            rest = len(unloaded) - len(visible)
+            names = "  |  ".join(m.id for m in visible)
+            suffix = f"  … +{rest} more" if rest > 0 else ""
             unloaded_bar.update(f"  Unloaded ({len(unloaded)}): {names}{suffix}")
         else:
             unloaded_bar.update("")

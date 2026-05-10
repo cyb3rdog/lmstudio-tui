@@ -25,6 +25,10 @@ class ModelInfo(BaseModel):
     gpu_layers: int | None = None
     context_length: int | None = None
     kv_cache_type: str | None = None
+    # Inference parameters (returned by LM Studio when model is loaded)
+    temperature: float | None = None
+    top_p: float | None = None
+    repeat_penalty: float | None = None
 
     @property
     def is_loaded(self) -> bool:
@@ -71,6 +75,7 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: int | None = None
     temperature: float = 0.0
     top_p: float | None = None
+    repeat_penalty: float | None = None
 
 
 class CompletionRequest(BaseModel):

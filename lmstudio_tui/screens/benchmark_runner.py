@@ -28,6 +28,7 @@ class BenchmarkRunner(Widget):
         border-bottom: solid $primary-darken-3;
     }
     BenchmarkRunner #config-row { height: auto; }
+    BenchmarkRunner #config-row.stacked { layout: vertical; }
     BenchmarkRunner #config-row Label { margin: 0 1; width: auto; }
     BenchmarkRunner #config-row Input { width: 8; }
     BenchmarkRunner #config-row Select { width: 18; }
@@ -90,6 +91,20 @@ class BenchmarkRunner(Widget):
         self._results: list = []
         self._run_count = 0
         self._stop_requested = False
+        self._update_config_layout()
+
+    def on_resize(self) -> None:
+        self._update_config_layout()
+
+    def _update_config_layout(self) -> None:
+        try:
+            row = self.query_one("#config-row")
+            if self.size.width < 70:
+                row.add_class("stacked")
+            else:
+                row.remove_class("stacked")
+        except Exception:
+            pass
 
     def _config(self) -> dict:
         return {

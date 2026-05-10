@@ -8,7 +8,6 @@ from textual import work
 
 from ..config.loader import save_config
 from ..config.models import ServerConfig
-from ..state.server_registry import ServerRegistry
 from .modals.confirm_dialog import ConfirmModal
 from .modals.server_form import ServerFormModal
 
@@ -24,12 +23,26 @@ class Settings(Widget):
     }
     Settings #server-panel {
         width: 36;
+        height: 1fr;
         border-right: solid $primary-darken-3;
         padding: 0 1;
     }
     Settings #prefs-panel {
         width: 1fr;
         padding: 0 2;
+    }
+    Settings #layout.stacked {
+        layout: vertical;
+    }
+    Settings #layout.stacked #server-panel {
+        width: 1fr;
+        height: auto;
+        max-height: 14;
+        border-right: none;
+        border-bottom: solid $primary-darken-3;
+    }
+    Settings #layout.stacked #prefs-panel {
+        width: 1fr;
     }
     Settings .section-title {
         text-style: bold;
@@ -68,6 +81,20 @@ class Settings(Widget):
         self._load_server_list()
         self.query_one("#inp-poll", Input).value = str(self.app.config.ui.poll_interval_s)
         self.query_one("#inp-export-dir", Input).value = self.app.config.benchmark.export_dir
+        self._update_layout()
+
+    def on_resize(self) -> None:
+        self._update_layout()
+
+    def _update_layout(self) -> None:
+        try:
+            layout = self.query_one("#layout")
+            if self.size.width < 60:
+                layout.add_class("stacked")
+            else:
+                layout.remove_class("stacked")
+        except Exception:
+            pass
 
     def _load_server_list(self) -> None:
         lv = self.query_one("#server-list", ListView)

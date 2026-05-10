@@ -73,6 +73,35 @@ class LMStudioClient:
         except httpx.TimeoutException as e:
             raise exc.TimeoutError(str(e)) from e
 
+    @staticmethod
+    def _extract_metrics(data: dict, model_id: str, total_ms: float) -> CompletionMetrics:
+        """Extract performance metrics from a LM Studio chat/completion response.
+
+        LM Studio v1 puts perf data in a top-level 'stats' key:
+          stats.tokens_per_second    (float)
+          stats.time_to_first_token  (float, seconds)
+          stats.time_to_generate     (float, seconds)
+
+        Older / OpenAI-compat responses may omit stats entirely; we fall back to
+        wall-clock total_ms in that case and leave tps/ttft as None.
+        """
+        usage = data.get("usage", {})
+        stats = data.get("stats", {})
+
+        tps: float | None = stats.get("tokens_per_second")
+        # LM Studio returns TTFT in seconds; convert to ms
+        ttft_s: float | None = stats.get("time_to_first_token")
+        ttft_ms = ttft_s * 1000.0 if ttft_s is not None else None
+
+        return CompletionMetrics(
+            model_id=model_id,
+            tokens_per_second=tps,
+            time_to_first_token_ms=ttft_ms,
+            total_duration_ms=total_ms,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+        )
+
     # ── health ────────────────────────────────────────────────────────────────
 
     async def ping(self) -> float:
@@ -121,23 +150,7 @@ class LMStudioClient:
         total_ms = (time.perf_counter() - t0) * 1000
 
         text = data["choices"][0]["message"]["content"]
-        usage = data.get("usage", {})
-
-        # LM Studio may include stats in the response body or headers
-        stats = data.get("stats", {})
-        tps = stats.get("tokens_per_second") or data.get("tokens_per_second")
-        ttft = stats.get("time_to_first_token") or data.get("time_to_first_token")
-        if ttft:
-            ttft = ttft * 1000  # convert s → ms if needed when < 10
-
-        metrics = CompletionMetrics(
-            model_id=request.model,
-            tokens_per_second=tps,
-            time_to_first_token_ms=ttft,
-            total_duration_ms=total_ms,
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
-        )
+        metrics = self._extract_metrics(data, request.model, total_ms)
         return text, metrics
 
     async def chat_completion_stream(

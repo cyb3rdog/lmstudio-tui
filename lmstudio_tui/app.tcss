@@ -41,6 +41,7 @@
 #nav-list > ListItem.--highlight {
     background: $primary-darken-1;
     color: $text;
+    text-style: bold;
 }
 
 /* ── Content area ─────────────────────────────────────────────────────────── */
@@ -62,4 +63,46 @@
 .section-title {
     text-style: bold;
     color: $primary;
+}
+
+/* ── Modals — responsive sizing ───────────────────────────────────────────── */
+
+/* Base modal dialog: shrinks to fit on narrow screens */
+ModalScreen > Vertical {
+    background: $surface;
+    border: thick $primary;
+    width: 90%;
+    max-width: 64;
+    height: auto;
+    padding: 1 2;
+    align: center middle;
+}
+
+/* Onboarding wider on large screens */
+OnboardingModal > Vertical {
+    max-width: 64;
+}
+
+/* Confirm dialog is narrower */
+ConfirmModal > Vertical {
+    max-width: 50;
+}
+
+/* ── Toolbar rows — wrap on narrow screens ────────────────────────────────── */
+
+/* Benchmark config stacks vertically on narrow screens via on_resize() */
+BenchmarkRunner #config-row.stacked {
+    layout: vertical;
+    height: auto;
+}
+
+/* Settings panels stack vertically when width is tight */
+Settings #server-panel {
+    min-width: 28;
+}
+
+/* ── Utility ──────────────────────────────────────────────────────────────── */
+
+.-hidden {
+    display: none;
 }

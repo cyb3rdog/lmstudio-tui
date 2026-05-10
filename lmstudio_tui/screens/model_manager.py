@@ -6,7 +6,6 @@ from textual.widget import Widget
 from textual.widgets import Button, DataTable, Label, ProgressBar, Static
 from textual import work
 
-from ..api.models import ModelState
 from ..utils.formatting import format_ctx
 from .modals.confirm_dialog import ConfirmModal
 from .modals.model_load import ModelLoadModal
