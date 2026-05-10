@@ -14,18 +14,20 @@ A terminal-based user interface for remote management, monitoring, and benchmark
 
 ## Installation
 
-### From PyPI (when published)
-
-```bash
-pip install lmstudio-tui
-```
-
-### From Source
+### Local Development (Recommended)
 
 ```bash
 git clone https://github.com/cyb3rdog/lmstudio-tui.git
 cd lmstudio-tui
 pip install -e .
+```
+
+This installs the package in editable mode, ideal for development and testing.
+
+### From PyPI (when published)
+
+```bash
+pip install lmstudio-tui
 ```
 
 ## Usage
