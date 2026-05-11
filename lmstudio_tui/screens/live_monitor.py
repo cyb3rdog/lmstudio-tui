@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 
 from textual.app import ComposeResult
@@ -84,11 +85,12 @@ class LiveMonitor(Widget):
 
         for panel in list(panels_container.query(MetricPanel)):
             if panel._model_id not in loaded_ids:
-                panel.remove()
+                await panel.remove()
 
         for model in loaded:
             if model.id not in existing:
-                panels_container.mount(MetricPanel(model.id, id=f"mp-{model.id.replace('/', '-').replace('.', '-')}"))
+                safe_id = re.sub(r"[^a-zA-Z0-9_-]", "-", model.id)
+                panels_container.mount(MetricPanel(model.id, id=f"mp-{safe_id}"))
 
         for panel in panels_container.query(MetricPanel):
             mid = panel._model_id

@@ -12,6 +12,7 @@ from ..config.models import ModelPref
 from ..config.loader import save_config
 from ..utils.formatting import format_ctx
 from .modals.confirm_dialog import ConfirmModal
+from .modals.download_model import DownloadModelModal
 from .modals.model_load import ModelLoadModal
 
 
@@ -63,16 +64,28 @@ class ModelManager(Widget):
 
     def on_mount(self) -> None:
         table = self.query_one("#models-table", DataTable)
-        table.add_column("Model", width=40)
-        table.add_column("Status", width=8)
-        table.add_column("Quant", width=8)
-        table.add_column("Ctx", width=6)
-        table.add_column("VRAM", width=6)
+        self._setup_columns(table)
         self._dl_timer = None
         self._dl_client = None
         self._dl_model_id = ""
         self._update_toolbar_layout()
         self.action_refresh()
+
+    def _setup_columns(self, table: DataTable) -> None:
+        w = self.size.width
+        if w < 50:
+            table.add_column("Model", width=24)
+            table.add_column("St", width=2)
+        elif w < 70:
+            table.add_column("Model", width=28)
+            table.add_column("Status", width=7)
+            table.add_column("Ctx", width=5)
+        else:
+            table.add_column("Model", width=40)
+            table.add_column("Status", width=8)
+            table.add_column("Quant", width=8)
+            table.add_column("Ctx", width=6)
+            table.add_column("VRAM", width=6)
 
     def on_unmount(self) -> None:
         if self._dl_timer:
@@ -127,13 +140,17 @@ class ModelManager(Widget):
             models = await client.list_models()
             table = self.query_one("#models-table", DataTable)
             table.clear()
+            col_count = len(table.columns)
             for m in models:
-                status = "LOADED" if m.is_loaded else "—"
+                status = "●" if m.is_loaded else "○"
                 quant = m.quantization or "—"
                 ctx = format_ctx(m.max_context_length or m.context_length)
-                vram = "—"
-                table.add_row(m.id, status, quant, ctx, vram, key=m.id)
-            # Force refresh after updating table
+                if col_count == 2:
+                    table.add_row(m.id[:24], status, key=m.id)
+                elif col_count == 3:
+                    table.add_row(m.id[:28], status, ctx, key=m.id)
+                else:
+                    table.add_row(m.id, status, quant, ctx, "—", key=m.id)
             table.refresh()
         except Exception as e:
             self.notify(str(e), severity="error")
@@ -169,11 +186,11 @@ class ModelManager(Widget):
 
     @work
     async def action_download_model(self) -> None:
-        model_id = self._focused_model_id()
-        if not model_id:
-            self.app.notify("Select a model row first", severity="warning", timeout=4.0)
-            return
-        self._do_download(model_id)
+        # Pre-fill with focused model ID if available; user can edit it
+        prefill = self._focused_model_id() or ""
+        model_id = await self.app.push_screen_wait(DownloadModelModal(prefill=prefill))
+        if model_id:
+            self._do_download(model_id)
 
     # ── helpers ───────────────────────────────────────────────────────────────
 

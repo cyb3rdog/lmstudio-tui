@@ -331,8 +331,8 @@ class BenchmarkRunner(Widget):
         self._results = []
         self.query_one("#results-table", DataTable).clear()
         self.query_one("#summary-content", Static).update("Running…")
-        self.running = True
         self._run_benchmark(cfg)
+        self.running = True
 
     @work
     async def _run_benchmark(self, cfg: dict) -> None:
