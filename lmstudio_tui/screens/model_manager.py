@@ -12,7 +12,7 @@ from ..config.models import ModelPref
 from ..config.loader import save_config
 from ..utils.formatting import format_ctx
 from .modals.confirm_dialog import ConfirmModal
-from .modals.download_model import DownloadModelModal
+from .modals.download_manager import DownloadManagerModal
 from .modals.model_load import ModelLoadModal
 
 
@@ -62,34 +62,45 @@ class ModelManager(Widget):
             yield ProgressBar(id="dl-progress", total=100, show_eta=False)
             yield Button("✕ Cancel", id="btn-dl-cancel", variant="error")
 
-    def on_mount(self) -> None:
-        table = self.query_one("#models-table", DataTable)
-        self._setup_columns(table)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._focused_id: str | None = None
         self._dl_timer = None
         self._dl_client = None
         self._dl_model_id = ""
+
+    def on_mount(self) -> None:
+        table = self.query_one("#models-table", DataTable)
+        self._setup_columns(table)
         self._update_toolbar_layout()
         self.action_refresh()
 
     def _setup_columns(self, table: DataTable) -> None:
         w = self.size.width
         if w < 50:
-            table.add_column("Model", width=24)
+            table.add_column("Model", width=22)
             table.add_column("St", width=2)
-        elif w < 70:
-            table.add_column("Model", width=28)
-            table.add_column("Status", width=7)
+        elif w < 72:
+            table.add_column("Model", width=20)
+            table.add_column("St", width=2)
+            table.add_column("Quant", width=8)
             table.add_column("Ctx", width=5)
         else:
-            table.add_column("Model", width=40)
+            table.add_column("Model", width=36)
             table.add_column("Status", width=8)
-            table.add_column("Quant", width=8)
+            table.add_column("Quant", width=10)
             table.add_column("Ctx", width=6)
             table.add_column("VRAM", width=6)
 
     def on_unmount(self) -> None:
         if self._dl_timer:
             self._dl_timer.stop()
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.data_table.id == "models-table" and event.row_key:
+            self._focused_id = (
+                str(event.row_key.value) if event.row_key.value is not None else None
+            )
 
     def on_resize(self) -> None:
         self._update_toolbar_layout()
@@ -146,11 +157,11 @@ class ModelManager(Widget):
                 quant = m.quantization or "—"
                 ctx = format_ctx(m.max_context_length or m.context_length)
                 if col_count == 2:
-                    table.add_row(m.id[:24], status, key=m.id)
-                elif col_count == 3:
-                    table.add_row(m.id[:28], status, ctx, key=m.id)
+                    table.add_row(m.id[:22], status, key=m.id)
+                elif col_count == 4:
+                    table.add_row(m.id[:20], status, quant[:8], ctx, key=m.id)
                 else:
-                    table.add_row(m.id, status, quant, ctx, "—", key=m.id)
+                    table.add_row(m.id[:36], status, quant[:10], ctx, "—", key=m.id)
             table.refresh()
         except Exception as e:
             self.notify(str(e), severity="error")
@@ -186,23 +197,14 @@ class ModelManager(Widget):
 
     @work
     async def action_download_model(self) -> None:
-        # Pre-fill with focused model ID if available; user can edit it
-        prefill = self._focused_model_id() or ""
-        model_id = await self.app.push_screen_wait(DownloadModelModal(prefill=prefill))
+        model_id = await self.app.push_screen_wait(DownloadManagerModal())
         if model_id:
             self._do_download(model_id)
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
     def _focused_model_id(self) -> str | None:
-        table = self.query_one("#models-table", DataTable)
-        if table.cursor_row < 0:
-            return None
-        try:
-            cell = table.get_cell_at((table.cursor_row, 0))
-            return str(cell)
-        except (IndexError, KeyError):
-            return None
+        return self._focused_id
 
     @work
     async def _do_load(self, request) -> None:

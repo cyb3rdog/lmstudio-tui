@@ -1,20 +1,25 @@
 # LM Studio TUI
 
-A terminal-based user interface for remote management, monitoring, and benchmarking of LM Studio servers.
-
-![LM Studio TUI Demo](https://via.placeholder.com/800x400?text=LM+Studio+TUI+Screenshot)
+A terminal-based UI for managing, monitoring, chatting with, and benchmarking [LM Studio](https://lmstudio.ai) servers — from any terminal, including mobile (SSH/Termux).
 
 ## Features
 
-- **Dashboard** - View loaded models and server status
-- **Model Manager** - Load, unload, and download models
-- **Live Monitor** - Real-time TPS and TTFT metrics
-- **Benchmark Runner** - Performance testing across loaded models
-- **Settings** - Server configuration and preferences
+| Screen | What it does |
+|--------|--------------|
+| **Dashboard** | Server status bar, loaded model cards with TPS/TTFT sparklines, unloaded model summary |
+| **Models** | Full model table (status, quantization, context size); Load/Unload/Download with keyboard shortcuts |
+| **Chat** | Streaming chat with any loaded model; history, Stop, Clear (`Ctrl+L`) |
+| **Monitor** | Live 1-second TPS & TTFT sparklines per model; recent-requests table; Pause (`P`) |
+| **Benchmark** | Multi-model, multi-mode benchmarking (throughput, tool calling, parallel); CSV/JSON/Markdown export |
+| **Settings** | Server CRUD, connection test, poll interval preference |
+
+### Model Hub
+
+Press **D** on the Models screen (or click Download) to open the **Model Hub** — a searchable browser of GGUF models from HuggingFace. Search by name, browse by popularity, and kick off a download to your LM Studio server with one click.
 
 ## Installation
 
-### Local Development (Recommended)
+### Local development
 
 ```bash
 git clone https://github.com/cyb3rdog/lmstudio-tui.git
@@ -22,142 +27,129 @@ cd lmstudio-tui
 pip install -e .
 ```
 
-This installs the package in editable mode, ideal for development and testing.
-
-### From PyPI (when published)
+### PyPI
 
 ```bash
 pip install lmstudio-tui
 ```
 
-## Usage
-
-### Quick Start
-
-Run with default configuration:
+## Quick start
 
 ```bash
+# Connect to LM Studio running on localhost
 lmstudio-tui
+
+# Connect to a remote server
+lmstudio-tui --endpoint http://192.168.1.100:1234 --api-key your-key
 ```
 
-### With Server Configuration
+On first launch with no config file, an onboarding dialog asks for the server endpoint and API key (the key can be left blank if auth is disabled).
 
-```bash
-lmstudio-tui --endpoint https://your-server.com --api-key your-api-key
-```
-
-### Command Line Options
+## Command-line options
 
 ```
 usage: lmstudio-tui [-h] [--endpoint ENDPOINT] [--api-key API_KEY]
 
-options:
-  -h, --help            show this help message and exit
-  --endpoint ENDPOINT   LM Studio server endpoint (e.g., https://lmstudio.example.com)
-  --api-key API_KEY     API key for authentication (from LM Studio settings)
+  --endpoint ENDPOINT   Server URL (e.g. http://192.168.1.100:1234)
+  --api-key API_KEY     API key (leave empty if auth is disabled)
 ```
 
 ## Configuration
 
-Configuration is stored at `~/.lmstudio-tui/config.toml`:
+`~/.lmstudio-tui/config.toml` is created automatically on first run:
 
 ```toml
-active_server = "MyServer"
+active_server = "local"
 
 [[servers]]
-name = "MyServer"
-endpoint = "https://lmstudio.example.com"
-api_key = "your-api-key-here"
+name = "local"
+endpoint = "http://localhost:1234"
+api_key = ""
 
 [benchmark]
-default_prompt_set = "mixed"
-default_samples = 10
-warmup_runs = 2
 export_dir = "~/.lmstudio-tui/benchmarks"
 
 [ui]
 poll_interval_s = 3.0
-theme = "textual-dark"
 ```
 
-## Navigation
+## Keyboard shortcuts
+
+### Global
 
 | Key | Action |
 |-----|--------|
-| `1-5` | Switch between screens (Dashboard, Models, Monitor, Benchmark, Settings) |
+| `1` – `6` | Jump to Dashboard / Models / Chat / Monitor / Benchmark / Settings |
 | `Ctrl+B` | Toggle sidebar |
-| `Escape` | Return focus to navigation |
-| `P` | Pause/Resume live monitor |
-| `R` | Refresh current screen |
+| `Escape` | Focus nav sidebar (second press collapses it) |
+| `?` | Show keyboard-shortcuts overlay |
+| `Ctrl+R` | Force reconnect to all servers |
 | `Ctrl+Q` | Quit |
 
-### Screen Shortcuts
+### Models screen
 
-- **Dashboard**: `L` (Load), `U` (Unload), `D` (Download)
-- **Model Manager**: `L` (Load), `U` (Unload), `D` (Download), `R` (Refresh)
+| Key | Action |
+|-----|--------|
+| `L` | Load selected model |
+| `U` | Unload selected model |
+| `D` | Open Model Hub (browse & download) |
+| `R` | Refresh model list |
+
+### Monitor screen
+
+| Key | Action |
+|-----|--------|
+| `P` | Pause / Resume live refresh |
+
+### Chat screen
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+L` | Clear chat history |
+| `Enter` | Send message |
+
+### Benchmark screen
+
+| Key | Action |
+|-----|--------|
+| `S` | Start benchmark |
+| `X` | Stop benchmark |
 
 ## Requirements
 
 - Python 3.11+
-- LM Studio server (v1 API)
-- Terminal with Unicode support
+- LM Studio 0.3+ (v1 API)
+- Terminal with Unicode and color support
+- Internet access on the TUI host for Model Hub search (download is performed by the LM Studio server)
 
 ## Development
 
-### Setup
-
 ```bash
 pip install -e ".[dev]"
+pytest              # 112 tests
 ```
 
-### Running Tests
-
-```bash
-pytest
-```
-
-### Project Structure
+### Project structure
 
 ```
-lmstudio-tui/
-├── lmstudio_tui/
-│   ├── __init__.py
-│   ├── __main__.py
-│   ├── app.py              # Main application
-│   ├── app.tcss            # Styles
-│   ├── api/                # API client
-│   ├── benchmark/          # Benchmark engine & export
-│   ├── config/             # Configuration models & loader
-│   ├── screens/            # UI screens
-│   ├── state/              # Server registry, metrics store
-│   ├── utils/              # Formatting helpers
-│   └── widgets/            # Custom widgets
-├── pyproject.toml
-└── README.md
+lmstudio_tui/
+├── api/            # LMStudioClient (httpx), HuggingFace Hub client
+├── benchmark/      # Engine, analysis, export
+├── config/         # TOML models and loader
+├── screens/        # Dashboard, Models, Chat, Monitor, Benchmark, Settings
+│   └── modals/     # ConfirmModal, ModelLoadModal, DownloadManagerModal, …
+├── state/          # ServerRegistry, MetricsStore
+├── utils/          # Formatting helpers
+└── widgets/        # ModelCard, MetricPanel, ComparisonChart, …
 ```
 
-## Troubleshooting
+## Known limitations
 
-### "No server connected" error
-
-1. Verify the server endpoint is accessible
-2. Check your API key is correct
-3. Ensure the LM Studio server is running
-
-### Empty model list
-
-1. Check server connection in Dashboard
-2. Verify models are loaded on the server
-3. Check firewall/proxy settings
-
-### Terminal too small
-
-The TUI requires minimum 60 columns width. Use landscape mode or resize your terminal.
+- **TTFT** is wall-clock time from request to first chunk; LM Studio's `stats` field is always empty.
+- **VRAM** shows `—`; the LM Studio v1 API does not expose per-model VRAM usage.
+- **Download progress** returns 404 on some LM Studio versions; the progress bar hides gracefully.
+- **reasoning_tokens** is a streaming chunk-count proxy, not real token counts.
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-Built with [Textual](https://textual.textualize.io/) for the terminal UI framework.
+MIT — see [LICENSE](LICENSE).

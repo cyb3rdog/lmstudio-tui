@@ -1,6 +1,6 @@
 # LM Studio TUI - Roadmap
 
-## Current Status: ✅ Phase 1, 2, 3A, 3B & 3C Complete
+## Current Status: ✅ Phase 1, 2, 3A, 3B, 3C & 4A Complete
 
 All planned features have been implemented. Core UX, chat, benchmark, and test suite are production-ready.
 
@@ -64,10 +64,30 @@ All planned features have been implemented. Core UX, chat, benchmark, and test s
 | `tests/test_api_client.py` | ping, list_models, load_model, _extract_metrics |
 | `tests/test_benchmark_analysis.py` | percentile, IQR outliers, analyze, detect_winners |
 | `tests/test_agentic_benchmark.py` | Tool suite, scoring, agentic analyze |
+| `tests/test_hub_api.py` | HubModel formatting, search_hub URL params, error handling |
 
 ---
 
-## Phase 4: Advanced Features (Optional)
+## ✅ Phase 4A: Model Hub — COMPLETE
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Hub-1 | ✅ | `api/hub.py` — HuggingFace search (`GET /api/models?filter=gguf`) |
+| Hub-2 | ✅ | `DownloadManagerModal` — searchable DataTable with downloads/likes columns |
+| Hub-3 | ✅ | Default view: top GGUF models by downloads (no query required) |
+| Hub-4 | ✅ | Row-key tracking prevents truncated-ID bugs on narrow terminals |
+| Hub-5 | ✅ | Fallback: paste full `author/model-GGUF` ID directly into search input |
+| Hub-6 | ✅ | 19 tests in `tests/test_hub_api.py` |
+| Model-1 | ✅ | Quant + Ctx columns restored at medium widths (50–72 cols) |
+| Model-2 | ✅ | Model ID bug fixed: row key used instead of truncated cell text |
+| Bug-1 | ✅ | httpx fd leak fixed: old client closed before reconnect |
+| Bug-2 | ✅ | Per-server asyncio.Lock prevents concurrent-connect race |
+| Bug-3 | ✅ | LiveMonitor DataTable rebuild throttled (zero DOM ops when idle) |
+| Bug-4 | ✅ | Chat history capped (40 turns); RichLog capped (500 lines) |
+
+---
+
+## Phase 4B: Advanced Features (Optional)
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
@@ -84,14 +104,14 @@ All planned features have been implemented. Core UX, chat, benchmark, and test s
 
 ### Working Features
 - ✅ Dashboard — server status bar, model cards with sparklines
-- ✅ Models — table, load/unload/download, responsive toolbar (stacks on mobile)
+- ✅ Models — table (with Quant + Ctx columns), load/unload, Model Hub (browse/search/download GGUF from HuggingFace), responsive toolbar
 - ✅ Chat — streaming chat, model selector, history, Stop/Clear, feeds Live Monitor
 - ✅ Monitor — TPS/TTFT sparklines, recent requests table (populated by Chat + Benchmark)
 - ✅ Benchmark — model SelectionList, mode checkboxes, unload-all flow, load time, tool calling, parallel, export
 - ✅ Settings — server config, connection test, prefs
 - ✅ Portrait/landscape responsive; all toolbars stack on narrow screens
 - ✅ Keyboard shortcuts overlay (`?`); number keys 1-6 always navigate
-- ✅ 93 tests passing
+- ✅ 112 tests passing
 
 ### Known Limitations
 - TTFT is wall-clock only (LM Studio's `stats` field is always empty)
