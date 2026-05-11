@@ -12,6 +12,7 @@ from .config.models import AppConfig, ServerConfig
 from .screens.benchmark_runner import BenchmarkRunner
 from .screens.chat import ChatScreen
 from .screens.dashboard import Dashboard
+from .screens.hub import ModelHub
 from .screens.live_monitor import LiveMonitor
 from .screens.model_manager import ModelManager
 from .screens.settings import Settings
@@ -25,7 +26,8 @@ _NAV_ITEMS = [
     ("chat",       "Chat",       "3"),
     ("monitor",    "Monitor",    "4"),
     ("benchmark",  "Benchmark",  "5"),
-    ("settings",   "Settings",  "6"),
+    ("hub",        "Hub",        "6"),
+    ("settings",   "Settings",  "7"),
 ]
 
 # Sidebar auto-collapses below this terminal width
@@ -46,7 +48,7 @@ class LMStudioApp(App[None]):
         Binding("ctrl+q",         "quit",             "Quit",            show=True),
         Binding("ctrl+b",         "toggle_sidebar",   "Menu",            show=True),
         Binding("escape",         "focus_nav",        "Nav",             show=True),
-        Binding("question_mark",  "show_shortcuts",   "Help",            show=True),
+        Binding("question_mark",  "show_shortcuts",   "?",               show=True),
         Binding("ctrl+r",         "force_refresh",    "Refresh",         show=False),
         # Number-key shortcuts always work regardless of sidebar state
         Binding("1", "goto('dashboard')",  "Dashboard",  show=False),
@@ -54,7 +56,8 @@ class LMStudioApp(App[None]):
         Binding("3", "goto('chat')",       "Chat",       show=False),
         Binding("4", "goto('monitor')",    "Monitor",    show=False),
         Binding("5", "goto('benchmark')",  "Benchmark",  show=False),
-        Binding("6", "goto('settings')",   "Settings",   show=False),
+        Binding("6", "goto('hub')",        "Hub",        show=False),
+        Binding("7", "goto('settings')",   "Settings",   show=False),
     ]
 
     sidebar_visible: reactive[bool] = reactive(True, init=False)
@@ -87,6 +90,7 @@ class LMStudioApp(App[None]):
                 yield ChatScreen(id="chat")
                 yield LiveMonitor(id="monitor")
                 yield BenchmarkRunner(id="benchmark")
+                yield ModelHub(id="hub")
                 yield Settings(id="settings")
         yield Footer()
         # Portrait mini header — visible only when sidebar is collapsed.
@@ -254,11 +258,19 @@ class LMStudioApp(App[None]):
         from .screens.modals.shortcuts import ShortcutsModal
         self.push_screen(ShortcutsModal())
 
-    # ── dashboard messages ────────────────────────────────────────────────────
+    # ── cross-screen messages ─────────────────────────────────────────────────
 
     def on_dashboard_navigate_to_models(self, _event: Dashboard.NavigateToModels) -> None:
         self._switch_to("models")
         self._focus_content()
+
+    def on_model_hub_download_requested(self, event: ModelHub.DownloadRequested) -> None:
+        """Route a Hub download request: switch to Models and kick off download."""
+        self._switch_to("models")
+        try:
+            self.query_one("#models", ModelManager)._do_download(event.model_id)
+        except Exception:
+            pass
 
 
 # ── factory ───────────────────────────────────────────────────────────────────

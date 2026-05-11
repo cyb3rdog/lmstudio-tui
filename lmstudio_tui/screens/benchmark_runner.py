@@ -61,23 +61,15 @@ class BenchmarkRunner(Widget):
         height: auto;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
-        padding: 0 1 1 1;
-    }
-    BenchmarkRunner .cfg-title {
-        color: $primary;
-        text-style: bold;
-        padding: 1 0 0 0;
-        height: 2;
+        padding: 0 1;
     }
     BenchmarkRunner #model-list {
-        height: 5;
-        max-height: 8;
+        height: 4;
+        max-height: 6;
         border: solid $primary-darken-3;
-        margin-bottom: 1;
     }
     BenchmarkRunner #model-actions {
         height: auto;
-        margin-bottom: 1;
     }
     BenchmarkRunner #model-actions Button {
         width: auto;
@@ -85,7 +77,6 @@ class BenchmarkRunner(Widget):
     }
     BenchmarkRunner #mode-row {
         height: auto;
-        margin-bottom: 1;
     }
     BenchmarkRunner #mode-row Checkbox {
         margin: 0 1 0 0;
@@ -103,7 +94,6 @@ class BenchmarkRunner(Widget):
     }
     BenchmarkRunner #btn-row {
         height: auto;
-        margin-top: 1;
     }
     BenchmarkRunner #btn-row Button {
         margin: 0 1 0 0;
@@ -119,7 +109,7 @@ class BenchmarkRunner(Widget):
         height: 3;
     }
     BenchmarkRunner #params-row.stacked .param-pair Label {
-        width: 14;
+        width: 12;
         height: 3;
         content-align: right middle;
     }
@@ -130,7 +120,7 @@ class BenchmarkRunner(Widget):
     /* ── Narrow: model-actions buttons stack ────────────────────────── */
     BenchmarkRunner #model-actions.stacked Button {
         width: 1fr;
-        margin: 0 0 1 0;
+        margin: 0 0 0 0;
     }
 
     /* ── Progress ────────────────────────────────────────────────── */
@@ -151,7 +141,7 @@ class BenchmarkRunner(Widget):
     /* ── Summary ─────────────────────────────────────────────────── */
     BenchmarkRunner #summary-panel {
         height: auto;
-        max-height: 8;
+        max-height: 6;
         border-top: solid $primary-darken-3;
         padding: 0 1;
     }
@@ -179,24 +169,19 @@ class BenchmarkRunner(Widget):
 
     def compose(self) -> ComposeResult:
         with ScrollableContainer(id="config-panel"):
-            # Models
-            yield Label("  Models", classes="cfg-title")
             yield SelectionList[str](id="model-list")
             with Horizontal(id="model-actions"):
-                yield Button("Select All", id="btn-sel-all", variant="default")
-                yield Button("Deselect All", id="btn-desel-all", variant="default")
-                yield Button("↺ Refresh List", id="btn-refresh-models", variant="default")
-
-            # Modes
-            yield Label("  Modes", classes="cfg-title")
+                yield Button("✓ All",      id="btn-sel-all",        variant="default")
+                yield Button("✗ None",     id="btn-desel-all",      variant="default")
+                yield Button("↺ Refresh",  id="btn-refresh-models", variant="default")
+                yield Button("▶ Start",    id="btn-start",          variant="primary")
+                yield Button("■ Stop",     id="btn-stop",           variant="error")
+                yield Button("⬇ Export",   id="btn-export",         variant="default")
             with Horizontal(id="mode-row"):
-                yield Checkbox("Throughput", id="chk-throughput", value=True)
-                yield Checkbox("Tool Calling", id="chk-tool", value=False)
-                yield Checkbox("Parallel", id="chk-parallel", value=False)
+                yield Checkbox("Throughput",  id="chk-throughput", value=True)
+                yield Checkbox("Tool Calling", id="chk-tool",      value=False)
+                yield Checkbox("Parallel",    id="chk-parallel",   value=False)
                 yield Button("Full (all)", id="btn-full-mode", variant="default")
-
-            # Parameters
-            yield Label("  Parameters", classes="cfg-title")
             with Horizontal(id="params-row"):
                 with Horizontal(classes="param-pair"):
                     yield Label("Samples:")
@@ -213,12 +198,6 @@ class BenchmarkRunner(Widget):
                 with Horizontal(classes="param-pair"):
                     yield Label("Slots:")
                     yield Input("4", id="inp-slots")
-
-            # Action buttons
-            with Horizontal(id="btn-row"):
-                yield Button("▶ Start", id="btn-start", variant="primary")
-                yield Button("■ Stop",  id="btn-stop",  variant="error")
-                yield Button("⬇ Export", id="btn-export", variant="default")
 
         # Progress bar
         with Horizontal(id="progress-panel", classes="-hidden"):
@@ -323,6 +302,7 @@ class BenchmarkRunner(Widget):
             case "btn-full-mode":
                 for chk_id in ("chk-throughput", "chk-tool", "chk-parallel"):
                     self.query_one(f"#{chk_id}", Checkbox).value = True
+        event.stop()
 
     def watch_running(self, running: bool) -> None:
         prog = self.query_one("#progress-panel")

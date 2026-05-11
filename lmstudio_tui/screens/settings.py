@@ -30,7 +30,7 @@ class Settings(Widget):
     }
     Settings #prefs-panel {
         width: 1fr;
-        padding: 0 2;
+        padding: 0 1;
     }
     Settings #layout.stacked {
         layout: vertical;
@@ -47,16 +47,15 @@ class Settings(Widget):
     }
     Settings .section-title {
         text-style: bold;
-        margin-top: 1;
-        margin-bottom: 1;
+        height: 1;
         color: $primary;
     }
     Settings ListView { height: 1fr; }
-    Settings Button { margin: 0 0 1 0; width: 100%; }
-    Settings #btn-row { height: auto; margin-bottom: 1; }
+    Settings Button { margin: 0; width: 100%; }
+    Settings #btn-row { height: auto; }
     Settings #btn-row Button { margin: 0 1 0 0; width: auto; }
-    Settings .pref-label { margin-top: 1; color: $text-muted; }
-    Settings Input { margin-bottom: 1; }
+    Settings .pref-label { height: 1; color: $text-muted; }
+    Settings Input { margin: 0; }
     """
 
     def compose(self) -> ComposeResult:

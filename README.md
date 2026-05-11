@@ -13,9 +13,9 @@ A terminal-based UI for managing, monitoring, chatting with, and benchmarking [L
 | **Benchmark** | Multi-model, multi-mode benchmarking (throughput, tool calling, parallel); CSV/JSON/Markdown export |
 | **Settings** | Server CRUD, connection test, poll interval preference |
 
-### Model Hub
+### Model Hub (screen `6`)
 
-Press **D** on the Models screen (or click Download) to open the **Model Hub** — a searchable browser of GGUF models from HuggingFace. Search by name, browse by popularity, and kick off a download to your LM Studio server with one click.
+Press **6** or **D** from the Models screen to open the **Hub** — a full-screen, searchable browser of GGUF models from HuggingFace. Default view shows the top 60 models by download count. Search by name, select a row, click **↓ Download** and the download starts on your LM Studio server while you watch progress in the Models screen.
 
 ## Installation
 
@@ -79,7 +79,7 @@ poll_interval_s = 3.0
 
 | Key | Action |
 |-----|--------|
-| `1` – `6` | Jump to Dashboard / Models / Chat / Monitor / Benchmark / Settings |
+| `1` – `7` | Dashboard / Models / Chat / Monitor / Benchmark / Hub / Settings |
 | `Ctrl+B` | Toggle sidebar |
 | `Escape` | Focus nav sidebar (second press collapses it) |
 | `?` | Show keyboard-shortcuts overlay |
