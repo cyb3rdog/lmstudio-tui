@@ -54,9 +54,12 @@ class ServerFormModal(ModalScreen[ServerConfig | None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-save":
-            name = self.query_one("#inp-name", Input).value.strip() or "default"
-            endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
-            api_key = self.query_one("#inp-apikey", Input).value.strip()
+            try:
+                name = self.query_one("#inp-name", Input).value.strip() or "default"
+                endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
+                api_key = self.query_one("#inp-apikey", Input).value.strip()
+            except Exception:
+                return
             self.dismiss(ServerConfig(name=name, endpoint=endpoint, api_key=api_key))
         else:
             self.dismiss(None)

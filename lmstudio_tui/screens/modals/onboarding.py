@@ -45,8 +45,11 @@ class OnboardingModal(ModalScreen[ServerConfig | None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-connect":
-            endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
-            api_key = self.query_one("#inp-apikey", Input).value.strip()
+            try:
+                endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
+                api_key = self.query_one("#inp-apikey", Input).value.strip()
+            except Exception:
+                return
             self.dismiss(ServerConfig(name="default", endpoint=endpoint, api_key=api_key))
         else:
             self.dismiss(None)

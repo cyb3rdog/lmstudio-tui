@@ -109,6 +109,12 @@ class DownloadManager(Widget):
         if self.query_one("#results-table", DataTable).row_count == 0:
             self._do_search("")
 
+    def on_hide(self) -> None:
+        """Stop download polling timer when screen is hidden."""
+        if self._dl_timer:
+            self._dl_timer.stop()
+            self._dl_timer = None
+
     def on_unmount(self) -> None:
         if self._dl_timer:
             self._dl_timer.stop()

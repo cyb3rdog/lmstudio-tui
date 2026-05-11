@@ -55,8 +55,11 @@ class ModelLoadModal(ModalScreen[LoadRequest | None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-load":
-            gpu_raw = self.query_one("#inp-gpu-layers", Input).value.strip()
-            ctx_raw = self.query_one("#inp-ctx", Input).value.strip()
+            try:
+                gpu_raw = self.query_one("#inp-gpu-layers", Input).value.strip()
+                ctx_raw = self.query_one("#inp-ctx", Input).value.strip()
+            except Exception:
+                return
             try:
                 gpu_layers = int(gpu_raw) if gpu_raw else None
                 ctx = int(ctx_raw) if ctx_raw else None

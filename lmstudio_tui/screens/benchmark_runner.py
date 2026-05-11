@@ -389,7 +389,7 @@ class BenchmarkRunner(Widget):
         self._run_benchmark(cfg)
         self.running = True
 
-    @work
+    @work(exclusive=True)
     async def _run_benchmark(self, cfg: dict) -> None:
         client = self.app.server_registry.active_client
         if not client:
