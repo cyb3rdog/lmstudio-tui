@@ -15,7 +15,8 @@ class OnboardingModal(ModalScreen[ServerConfig | None]):
     OnboardingModal > Vertical {
         background: $surface;
         border: thick $primary;
-        width: 64;
+        width: 90%;
+        max-width: 64;
         height: auto;
         padding: 2 3;
         align: center middle;

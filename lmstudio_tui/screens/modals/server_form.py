@@ -13,7 +13,8 @@ class ServerFormModal(ModalScreen[ServerConfig | None]):
     ServerFormModal > Vertical {
         background: $surface;
         border: thick $primary;
-        width: 60;
+        width: 90%;
+        max-width: 60;
         height: auto;
         padding: 1 2;
         align: center middle;

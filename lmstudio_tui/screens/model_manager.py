@@ -8,6 +8,8 @@ from textual.widget import Widget
 from textual.widgets import Button, DataTable, Label, ProgressBar, Static
 from textual import work
 
+from ..config.models import ModelPref
+from ..config.loader import save_config
 from ..utils.formatting import format_ctx
 from .modals.confirm_dialog import ConfirmModal
 from .modals.model_load import ModelLoadModal
@@ -31,8 +33,12 @@ class ModelManager(Widget):
         padding: 0 1;
         background: $surface-darken-1;
         border-top: solid $primary-darken-3;
+        align: left middle;
     }
     ModelManager #dl-bar.-hidden { display: none; }
+    ModelManager #dl-label { width: auto; margin-right: 1; }
+    ModelManager #dl-progress { width: 1fr; }
+    ModelManager #btn-dl-cancel { width: auto; margin-left: 1; }
     ModelManager Button { margin: 0 1; }
     """
 
@@ -53,6 +59,7 @@ class ModelManager(Widget):
         with Horizontal(id="dl-bar", classes="-hidden"):
             yield Label("Downloading: ", id="dl-label")
             yield ProgressBar(id="dl-progress", total=100, show_eta=False)
+            yield Button("✕ Cancel", id="btn-dl-cancel", variant="error")
 
     def on_mount(self) -> None:
         table = self.query_one("#models-table", DataTable)
@@ -63,6 +70,7 @@ class ModelManager(Widget):
         table.add_column("VRAM", width=6)
         self._dl_timer = None
         self._dl_client = None
+        self._dl_model_id = ""
         self._update_toolbar_layout()
         self.action_refresh()
 
@@ -95,6 +103,8 @@ class ModelManager(Widget):
                 self.action_download_model()
             case "btn-refresh":
                 self.action_refresh()
+            case "btn-dl-cancel":
+                self._cancel_download()
 
     # ── actions (all decorated with @work so push_screen_wait is safe) ────────
 
@@ -134,7 +144,14 @@ class ModelManager(Widget):
         if not model_id:
             self.app.notify("Select a model row first", severity="warning", timeout=4.0)
             return
-        result = await self.app.push_screen_wait(ModelLoadModal(model_id))
+        pref = self.app.config.model_prefs.get(model_id)
+        result = await self.app.push_screen_wait(
+            ModelLoadModal(
+                model_id,
+                gpu_layers=pref.gpu_layers if pref else None,
+                context_length=pref.context_length if pref else None,
+            )
+        )
         if result:
             self._do_load(result)
 
@@ -178,6 +195,12 @@ class ModelManager(Widget):
         try:
             self.notify(f"Loading {request.model}…")
             await client.load_model(request)
+            # Persist load params so modal pre-fills next time
+            self.app.config.model_prefs[request.model] = ModelPref(
+                gpu_layers=request.gpu_layers,
+                context_length=request.context_length,
+            )
+            save_config(self.app.config)
             self.notify(f"Loaded {request.model}", severity="information")
             self.action_refresh()
         except Exception as e:
@@ -211,17 +234,37 @@ class ModelManager(Widget):
         try:
             await client.download_model(model_id)
             self.notify(f"Download started: {model_id}")
-            self._start_download_poll(client)
+            self._start_download_poll(client, model_id)
         except Exception as e:
-            self.notify(str(e), severity="error")
+            # Friendly message when the download endpoint is unsupported
+            err_str = str(e)
+            if "404" in err_str or "Not Found" in err_str:
+                self.notify(
+                    "Download not supported on this server version. "
+                    "Use the LM Studio desktop app to download models.",
+                    severity="warning",
+                    timeout=8.0,
+                )
+            else:
+                self.notify(err_str, severity="error")
 
-    def _start_download_poll(self, client) -> None:
+    def _start_download_poll(self, client, model_id: str = "") -> None:
         self._dl_client = client
+        self._dl_model_id = model_id
         dl_bar = self.query_one("#dl-bar")
         dl_bar.remove_class("-hidden")
+        self.query_one("#dl-label", Label).update(f"Downloading: {model_id}  ")
+        self.query_one("#dl-progress", ProgressBar).update(progress=0)
         if self._dl_timer:
             self._dl_timer.stop()
         self._dl_timer = self.set_interval(2.0, self._poll_download)
+
+    def _cancel_download(self) -> None:
+        if self._dl_timer:
+            self._dl_timer.stop()
+            self._dl_timer = None
+        self.query_one("#dl-bar").add_class("-hidden")
+        self.notify("Download cancelled", severity="warning")
 
     @work(exclusive=True)
     async def _poll_download(self) -> None:
@@ -230,13 +273,26 @@ class ModelManager(Widget):
             return
         status = await client.get_download_status()
         if not status:
+            # Status endpoint not available — stop polling, hide bar
+            if self._dl_timer:
+                self._dl_timer.stop()
+                self._dl_timer = None
+            self.query_one("#dl-bar").add_class("-hidden")
             return
-        self.query_one("#dl-label", Label).update(f"Downloading: {status.model}  ")
+        name = status.model or getattr(self, "_dl_model_id", "")
+        self.query_one("#dl-label", Label).update(f"Downloading: {name}  ")
         pct = int(status.progress * 100)
         self.query_one("#dl-progress", ProgressBar).update(progress=pct)
         if status.status == "complete":
             if self._dl_timer:
                 self._dl_timer.stop()
+                self._dl_timer = None
             self.query_one("#dl-bar").add_class("-hidden")
-            self.notify(f"Downloaded {status.model}", severity="information")
+            self.notify(f"Downloaded {name}", severity="information")
             self.action_refresh()
+        elif status.status == "error":
+            if self._dl_timer:
+                self._dl_timer.stop()
+                self._dl_timer = None
+            self.query_one("#dl-bar").add_class("-hidden")
+            self.notify(f"Download failed: {name}", severity="error")

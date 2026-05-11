@@ -33,9 +33,9 @@ class ShortcutsModal(ModalScreen[None]):
 
     _HELP = """\
 [bold]Navigation[/bold]
-  [cyan]1-6[/cyan]           Switch screens
-  [cyan]Ctrl+B[/cyan]        Toggle sidebar
-  [cyan]Escape[/cyan]        Back to navigation
+  [cyan]1-6[/cyan]             Switch screens
+  [cyan]Ctrl+B[/cyan]          Toggle sidebar
+  [cyan]Escape[/cyan]          Focus nav / collapse sidebar
   [cyan]Tab / Shift+Tab[/cyan]  Next / previous widget
 
 [bold]Model Manager[/bold]
@@ -48,6 +48,14 @@ class ShortcutsModal(ModalScreen[None]):
   [cyan]Enter[/cyan]   Send message
   [cyan]Ctrl+L[/cyan]  Clear conversation
   [cyan]Stop[/cyan]    Abort streaming response
+
+[bold]Benchmark[/bold]
+  [cyan]Start[/cyan]         Begin benchmark run
+  [cyan]Stop[/cyan]          Abort running benchmark
+  [cyan]Select All[/cyan]    Mark all models
+  [cyan]Deselect All[/cyan]  Clear model selection
+  [cyan]Full (all)[/cyan]    Enable all benchmark modes
+  [cyan]Export[/cyan]        Save results (JSON / CSV / Markdown)
 
 [bold]Live Monitor[/bold]
   [cyan]P[/cyan]  Pause / Resume

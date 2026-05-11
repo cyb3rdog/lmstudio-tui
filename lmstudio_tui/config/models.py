@@ -4,6 +4,13 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class ModelPref:
+    """Remembered load parameters for a specific model."""
+    gpu_layers: int | None = None
+    context_length: int | None = None
+
+
+@dataclass
 class ServerConfig:
     name: str = "default"
     endpoint: str = "http://localhost:1234"
@@ -35,6 +42,7 @@ class AppConfig:
     active_server: str = "default"
     benchmark: BenchmarkConfig = field(default_factory=BenchmarkConfig)
     ui: UIConfig = field(default_factory=UIConfig)
+    model_prefs: dict[str, ModelPref] = field(default_factory=dict)
 
     @property
     def active_server_config(self) -> ServerConfig:

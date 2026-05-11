@@ -6,7 +6,7 @@ from pathlib import Path
 import tomli_w
 
 from .defaults import DEFAULT_CONFIG_TOML
-from .models import AppConfig, BenchmarkConfig, ServerConfig, UIConfig
+from .models import AppConfig, BenchmarkConfig, ModelPref, ServerConfig, UIConfig
 
 CONFIG_DIR = Path.home() / ".lmstudio-tui"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
@@ -54,11 +54,22 @@ def load_config() -> AppConfig:
         theme=udata.get("theme", "textual-dark"),
     )
 
+    mdata = data.get("model_prefs", {})
+    model_prefs = {
+        mid: ModelPref(
+            gpu_layers=v.get("gpu_layers"),
+            context_length=v.get("context_length"),
+        )
+        for mid, v in mdata.items()
+        if isinstance(v, dict)
+    }
+
     return AppConfig(
         servers=servers,
         active_server=data.get("active_server", servers[0].name),
         benchmark=bench,
         ui=ui,
+        model_prefs=model_prefs,
     )
 
 
@@ -80,6 +91,11 @@ def save_config(config: AppConfig) -> None:
         "ui": {
             "poll_interval_s": config.ui.poll_interval_s,
             "theme": config.ui.theme,
+        },
+        "model_prefs": {
+            mid: {k: v for k, v in [("gpu_layers", p.gpu_layers), ("context_length", p.context_length)] if v is not None}
+            for mid, p in config.model_prefs.items()
+            if p.gpu_layers is not None or p.context_length is not None
         },
     }
 

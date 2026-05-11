@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -14,6 +15,8 @@ from .screens.dashboard import Dashboard
 from .screens.live_monitor import LiveMonitor
 from .screens.model_manager import ModelManager
 from .screens.settings import Settings
+from .screens.modals.model_load import ModelLoadModal
+from .config.models import ModelPref
 from .state.metrics_store import MetricsStore
 from .state.server_registry import ConnectionState, ServerRegistry
 
@@ -252,6 +255,42 @@ class LMStudioApp(App[None]):
     def action_show_shortcuts(self) -> None:
         from .screens.modals.shortcuts import ShortcutsModal
         self.push_screen(ShortcutsModal())
+
+    # ── dashboard messages ────────────────────────────────────────────────────
+
+    def on_dashboard_navigate_to_models(self, _event: Dashboard.NavigateToModels) -> None:
+        self._switch_to("models")
+        self._focus_content()
+
+    def on_dashboard_quick_load(self, event: Dashboard.QuickLoad) -> None:
+        self._quick_load_model(event.model_id)
+
+    @work
+    async def _quick_load_model(self, model_id: str) -> None:
+        pref = self.config.model_prefs.get(model_id)
+        result = await self.push_screen_wait(
+            ModelLoadModal(
+                model_id,
+                gpu_layers=pref.gpu_layers if pref else None,
+                context_length=pref.context_length if pref else None,
+            )
+        )
+        if result:
+            client = self.server_registry.active_client
+            if not client:
+                self.notify("No server connected", severity="error")
+                return
+            try:
+                self.notify(f"Loading {model_id}…")
+                await client.load_model(result)
+                self.config.model_prefs[model_id] = ModelPref(
+                    gpu_layers=result.gpu_layers,
+                    context_length=result.context_length,
+                )
+                save_config(self.config)
+                self.notify(f"Loaded {model_id}", severity="information")
+            except Exception as e:
+                self.notify(str(e), severity="error")
 
 
 # ── factory ───────────────────────────────────────────────────────────────────
