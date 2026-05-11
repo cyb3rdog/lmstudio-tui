@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time as _time
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -10,6 +11,7 @@ from textual.widgets import Button, Input, Label, RichLog, Select, Static
 from textual import work
 
 from ..api.models import ChatCompletionRequest, ChatMessage
+from ..state.metrics_store import MetricSample
 
 
 class ChatScreen(Widget):
@@ -221,10 +223,17 @@ class ChatScreen(Widget):
         )
 
         collected: list[str] = []
+        t0 = _time.perf_counter()
+        t_first: float | None = None
+        chunk_count = 0
+
         try:
             async for chunk in client.chat_completion_stream(req):
                 if self._abort.is_set():
                     break
+                if t_first is None:
+                    t_first = _time.perf_counter()
+                chunk_count += 1
                 collected.append(chunk)
                 # Display a rolling preview (last 400 chars to stay performant)
                 preview = "".join(collected)
@@ -237,6 +246,25 @@ class ChatScreen(Widget):
                 )
         except Exception as e:
             self.notify(str(e), severity="error")
+
+        # Record to MetricsStore so Live Monitor can show chat activity
+        total_ms = (_time.perf_counter() - t0) * 1000.0
+        ttft_ms = (t_first - t0) * 1000.0 if t_first is not None else None
+        tps = (chunk_count / total_ms * 1000.0) if total_ms > 0 and chunk_count > 0 else None
+        try:
+            prompt_tokens = sum(len(m.content) // 4 for m in self._history if isinstance(m.content, str))
+            self.app.metrics_store.record(
+                self.app.server_registry.active_name,
+                MetricSample.now(
+                    model_id=model_id,
+                    tps=tps,
+                    ttft_ms=ttft_ms,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=chunk_count,
+                ),
+            )
+        except Exception:
+            pass
 
         full_response = "".join(collected)
         streaming_row.add_class("-hidden")
