@@ -70,8 +70,8 @@ class BenchmarkRunner(Widget):
         height: 2;
     }
     BenchmarkRunner #model-list {
-        height: 8;
-        max-height: 10;
+        height: 5;
+        max-height: 8;
         border: solid $primary-darken-3;
         margin-bottom: 1;
     }
@@ -88,7 +88,7 @@ class BenchmarkRunner(Widget):
         margin-bottom: 1;
     }
     BenchmarkRunner #mode-row Checkbox {
-        margin: 0 2 0 0;
+        margin: 0 1 0 0;
         width: auto;
     }
     BenchmarkRunner #params-row {
@@ -96,10 +96,10 @@ class BenchmarkRunner(Widget):
     }
     BenchmarkRunner #params-row Label {
         width: auto;
-        margin: 0 1;
+        margin: 0 1 0 0;
     }
     BenchmarkRunner #params-row Input {
-        width: 7;
+        width: 6;
     }
     BenchmarkRunner #btn-row {
         height: auto;
@@ -108,6 +108,29 @@ class BenchmarkRunner(Widget):
     BenchmarkRunner #btn-row Button {
         margin: 0 1 0 0;
         width: auto;
+    }
+
+    /* ── Narrow: params stack into multiple rows ─────────────────────── */
+    BenchmarkRunner #params-row.stacked {
+        layout: vertical;
+        height: auto;
+    }
+    BenchmarkRunner #params-row.stacked .param-pair {
+        height: 3;
+    }
+    BenchmarkRunner #params-row.stacked .param-pair Label {
+        width: 14;
+        height: 3;
+        content-align: right middle;
+    }
+    BenchmarkRunner #params-row.stacked .param-pair Input {
+        width: 1fr;
+    }
+
+    /* ── Narrow: model-actions buttons stack ────────────────────────── */
+    BenchmarkRunner #model-actions.stacked Button {
+        width: 1fr;
+        margin: 0 0 1 0;
     }
 
     /* ── Progress ────────────────────────────────────────────────── */
@@ -128,7 +151,7 @@ class BenchmarkRunner(Widget):
     /* ── Summary ─────────────────────────────────────────────────── */
     BenchmarkRunner #summary-panel {
         height: auto;
-        max-height: 12;
+        max-height: 8;
         border-top: solid $primary-darken-3;
         padding: 0 1;
     }
@@ -175,16 +198,21 @@ class BenchmarkRunner(Widget):
             # Parameters
             yield Label("  Parameters", classes="cfg-title")
             with Horizontal(id="params-row"):
-                yield Label("Samples:")
-                yield Input("10", id="inp-samples")
-                yield Label("Warmup:")
-                yield Input("2", id="inp-warmup")
-                yield Label("Temp:")
-                yield Input("0.0", id="inp-temp")
-                yield Label("Max tok:")
-                yield Input("256", id="inp-maxtok")
-                yield Label("Parallel slots:")
-                yield Input("4", id="inp-slots")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Samples:")
+                    yield Input("10", id="inp-samples")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Warmup:")
+                    yield Input("2", id="inp-warmup")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Temp:")
+                    yield Input("0.0", id="inp-temp")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Max tok:")
+                    yield Input("256", id="inp-maxtok")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Slots:")
+                    yield Input("4", id="inp-slots")
 
             # Action buttons
             with Horizontal(id="btn-row"):
@@ -206,17 +234,41 @@ class BenchmarkRunner(Widget):
             yield Static("No results yet.", id="summary-content")
 
     def on_mount(self) -> None:
-        table = self.query_one("#results-table", DataTable)
-        table.add_columns(
-            "#", "Model", "Mode", "TPS", "TTFT", "TPOT",
-            "Prompt/Out", "Tool✓", "Load ms"
-        )
+        self._setup_results_table()
+        self._update_layout()
         self._load_model_list()
 
     def on_show(self) -> None:
-        """Refresh model list when screen becomes visible."""
         if not self.running:
             self._load_model_list()
+
+    def on_resize(self) -> None:
+        self._update_layout()
+
+    def _update_layout(self) -> None:
+        w = self.size.width
+        try:
+            params = self.query_one("#params-row")
+            actions = self.query_one("#model-actions")
+            if w < 70:
+                params.add_class("stacked")
+                actions.add_class("stacked")
+            else:
+                params.remove_class("stacked")
+                actions.remove_class("stacked")
+        except Exception:
+            pass
+
+    def _setup_results_table(self) -> None:
+        table = self.query_one("#results-table", DataTable)
+        w = self.size.width
+        if w < 60:
+            table.add_columns("#", "Model", "Mode", "TPS", "TTFT", "Load ms")
+        else:
+            table.add_columns(
+                "#", "Model", "Mode", "TPS", "TTFT", "TPOT",
+                "Prompt/Out", "Tool✓", "Load ms"
+            )
 
     # ── model list ────────────────────────────────────────────────────────────
 
@@ -502,22 +554,34 @@ class BenchmarkRunner(Widget):
     ) -> None:
         self._run_count += 1
         table = self.query_one("#results-table", DataTable)
-        tool_str = (
-            "✓" if tool_correct is True
-            else "✗" if tool_correct is False
-            else "—"
-        )
-        table.add_row(
-            str(self._run_count),
-            model_id[:22],
-            mode,
-            format_tps(tps),
-            format_ms(ttft_ms),
-            _fmt(tpot_ms, 0, "ms") if tpot_ms is not None else "—",
-            f"{prompt_tokens}/{completion_tokens}" if prompt_tokens or completion_tokens else "—",
-            tool_str,
-            _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
-        )
+        col_count = len(table.columns)
+        if col_count == 6:
+            # Narrow table: #, Model, Mode, TPS, TTFT, Load ms
+            table.add_row(
+                str(self._run_count),
+                model_id[:14],
+                mode[:4],
+                format_tps(tps),
+                format_ms(ttft_ms),
+                _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
+            )
+        else:
+            tool_str = (
+                "✓" if tool_correct is True
+                else "✗" if tool_correct is False
+                else "—"
+            )
+            table.add_row(
+                str(self._run_count),
+                model_id[:22],
+                mode,
+                format_tps(tps),
+                format_ms(ttft_ms),
+                _fmt(tpot_ms, 0, "ms") if tpot_ms is not None else "—",
+                f"{prompt_tokens}/{completion_tokens}" if prompt_tokens or completion_tokens else "—",
+                tool_str,
+                _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
+            )
 
     def _update_summary(self) -> None:
         lines: list[str] = []

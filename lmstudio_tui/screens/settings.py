@@ -38,7 +38,7 @@ class Settings(Widget):
     Settings #layout.stacked #server-panel {
         width: 1fr;
         height: auto;
-        max-height: 14;
+        max-height: 10;
         border-right: none;
         border-bottom: solid $primary-darken-3;
     }
@@ -86,6 +86,7 @@ class Settings(Widget):
 
     def on_resize(self) -> None:
         self._update_layout()
+        self._load_server_list()
 
     def _update_layout(self) -> None:
         try:
@@ -100,10 +101,12 @@ class Settings(Widget):
     def _load_server_list(self) -> None:
         lv = self.query_one("#server-list", ListView)
         lv.clear()
+        max_ep = max(20, self.size.width - 18)
         for s in self.app.config.servers:
             conn = self.app.server_registry.get_connection(s.name)
             state_icon = "●" if conn and conn.state.value == "connected" else "○"
-            lv.append(ListItem(Label(f"{state_icon} {s.name}  {s.endpoint}"), name=s.name))
+            ep = s.endpoint if len(s.endpoint) <= max_ep else s.endpoint[:max_ep - 1] + "…"
+            lv.append(ListItem(Label(f"{state_icon} {s.name}  {ep}"), name=s.name))
 
     def _selected_server_name(self) -> str | None:
         lv = self.query_one("#server-list", ListView)

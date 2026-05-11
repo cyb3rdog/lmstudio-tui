@@ -27,7 +27,7 @@ class LiveMonitor(Widget):
         border-bottom: solid $primary-darken-3;
     }
     LiveMonitor #panels-scroll { height: 1fr; }
-    LiveMonitor #recent-table { height: 12; }
+    LiveMonitor #recent-table { height: 8; min-height: 4; }
     LiveMonitor #recent-label {
         padding: 0 1;
         color: $text-muted;
@@ -48,7 +48,7 @@ class LiveMonitor(Widget):
 
     def on_mount(self) -> None:
         table = self.query_one("#recent-table", DataTable)
-        table.add_columns("Time", "Model", "TPS", "TTFT", "In / Out tokens")
+        table.add_columns("Time", "Model", "TPS", "TTFT", "In/Out")
         self._timer = self.set_interval(1.0, self._refresh)
 
     def on_unmount(self) -> None:
@@ -101,12 +101,15 @@ class LiveMonitor(Widget):
         table = self.query_one("#recent-table", DataTable)
         table.clear()
         recent = store.all_recent(active, limit=20)
+        # Truncate model ID based on available width
+        w = self.size.width
+        mid_len = max(12, min(28, w - 40))
         for s in recent:
-            t = time.strftime("%H:%M:%S", time.localtime(s.timestamp))
+            t = time.strftime("%H:%M", time.localtime(s.timestamp))
             table.add_row(
                 t,
-                s.model_id[:28],
+                s.model_id[:mid_len],
                 format_tps(s.tokens_per_second),
                 format_ms(s.time_to_first_token_ms),
-                f"{s.prompt_tokens} / {s.completion_tokens}",
+                f"{s.prompt_tokens}/{s.completion_tokens}",
             )

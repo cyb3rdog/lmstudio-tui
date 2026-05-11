@@ -105,15 +105,20 @@ class Dashboard(Widget):
         if not conn:
             return
         server_bar = self.query_one("#server-bar", Static)
+        w = self.size.width
+        # Reserve space: "  " prefix + "   ● Connected   XXXms" = ~24 chars
+        max_ep = max(12, w - 26)
         endpoint = conn.config.endpoint
-        if self.size.width < 60 and len(endpoint) > 30:
-            endpoint = endpoint[:27] + "…"
+        if len(endpoint) > max_ep:
+            endpoint = endpoint[:max_ep - 1] + "…"
         if conn.state == ConnectionState.CONNECTED and conn.client:
             ping_str = f"{conn.ping_ms:.0f}ms" if conn.ping_ms else "—"
-            server_bar.update(
-                f"  [bold]{endpoint}[/bold]   "
-                f"[green]● Connected[/green]   {ping_str}"
-            )
+            if w < 50:
+                server_bar.update(f"  [green]●[/green] {endpoint}  {ping_str}")
+            else:
+                server_bar.update(
+                    f"  [bold]{endpoint}[/bold]   [green]● Connected[/green]   {ping_str}"
+                )
         elif conn.state == ConnectionState.CONNECTING:
             server_bar.update(f"  [yellow]◌ Connecting…[/yellow]")
         else:
@@ -139,19 +144,15 @@ class Dashboard(Widget):
             try:
                 models = await conn.client.list_models()
                 conn.models = models
-                ping_str = f"{conn.ping_ms:.0f}ms" if conn.ping_ms else "—"
-                server_bar.update(
-                    f"  [bold]{conn.config.endpoint}[/bold]   "
-                    f"[green]● Connected[/green]   {ping_str}"
-                )
+                self._update_server_bar()
                 await self._render_models(models)
             except Exception as e:
                 server_bar.update(f"  [red]Error: {e}[/red]")
         elif conn.state == ConnectionState.CONNECTING:
-            server_bar.update(f"  [yellow]◌ Connecting to {conn.config.endpoint}…[/yellow]")
+            server_bar.update(f"  [yellow]◌ Connecting…[/yellow]")
         else:
             err = conn.last_error or "unreachable"
-            server_bar.update(f"  {conn.config.endpoint}   [red]✗ {err}[/red]")
+            server_bar.update(f"  [red]✗ {err}[/red]")
 
     async def _render_models(self, models: list[ModelInfo]) -> None:
         loaded = [m for m in models if m.is_loaded]

@@ -23,17 +23,26 @@ class ChatScreen(Widget):
         height: 1fr;
     }
     ChatScreen #toolbar {
-        height: 3;
+        height: auto;
+        min-height: 3;
         padding: 0 1;
         background: $surface-darken-1;
         border-bottom: solid $primary-darken-3;
     }
-    ChatScreen #toolbar Label {
+    ChatScreen #toolbar-model-row {
+        height: 3;
+        width: 1fr;
+    }
+    ChatScreen #toolbar-model-row Label {
         height: 1;
         margin: 1 1 0 0;
         width: auto;
     }
-    ChatScreen #model-select { width: 32; }
+    ChatScreen #model-select { width: 1fr; }
+    ChatScreen #toolbar-btns-row {
+        height: 3;
+        width: auto;
+    }
     ChatScreen #btn-clear { margin: 0 1; width: auto; }
     ChatScreen #btn-stop  { margin: 0 0; width: auto; }
     ChatScreen #chat-log {
@@ -43,7 +52,7 @@ class ChatScreen(Widget):
     ChatScreen #streaming-row {
         height: auto;
         min-height: 1;
-        max-height: 6;
+        max-height: 4;
         padding: 0 1 0 1;
         background: $surface-darken-2;
         border-top: dashed $primary-darken-3;
@@ -60,7 +69,7 @@ class ChatScreen(Widget):
         border-top: solid $primary-darken-3;
     }
     ChatScreen #chat-input { width: 1fr; }
-    ChatScreen #btn-send   { width: 12; margin: 0 0 0 1; }
+    ChatScreen #btn-send   { width: 8; margin: 0 0 0 1; }
     ChatScreen #empty-state {
         height: 1fr;
         align: center middle;
@@ -68,6 +77,21 @@ class ChatScreen(Widget):
         text-style: italic;
     }
     ChatScreen #empty-state.-hidden { display: none; }
+
+    /* ── Narrow: toolbar stacks into 2 rows ─────────────────────────────── */
+    ChatScreen #toolbar.stacked {
+        layout: vertical;
+        height: auto;
+    }
+    ChatScreen #toolbar.stacked #toolbar-model-row {
+        width: 1fr;
+    }
+    ChatScreen #toolbar.stacked #toolbar-btns-row {
+        width: 1fr;
+        height: 3;
+    }
+    ChatScreen #toolbar.stacked #btn-clear { width: 1fr; }
+    ChatScreen #toolbar.stacked #btn-stop  { width: 1fr; }
     """
 
     BINDINGS = [
@@ -84,10 +108,12 @@ class ChatScreen(Widget):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="toolbar"):
-            yield Label("Model:")
-            yield Select([], id="model-select", prompt="Select a model…")
-            yield Button("Clear  [Ctrl+L]", id="btn-clear", variant="default")
-            yield Button("■ Stop", id="btn-stop", variant="error")
+            with Horizontal(id="toolbar-model-row"):
+                yield Label("Model:", id="lbl-model")
+                yield Select([], id="model-select", prompt="Select a model…")
+            with Horizontal(id="toolbar-btns-row"):
+                yield Button("Clear", id="btn-clear", variant="default")
+                yield Button("■ Stop", id="btn-stop", variant="error")
         yield Static(
             "[dim]No models loaded — go to Models screen to load one.[/dim]",
             id="empty-state",
@@ -107,9 +133,9 @@ class ChatScreen(Widget):
     def on_mount(self) -> None:
         self._sync_stop_button()
         self._populate_models()
+        self._update_layout()
 
     def on_show(self) -> None:
-        """Re-populate model list each time the screen becomes visible."""
         self._populate_models()
 
     def on_resize(self) -> None:
@@ -118,10 +144,13 @@ class ChatScreen(Widget):
     def _update_layout(self) -> None:
         try:
             toolbar = self.query_one("#toolbar")
+            lbl = self.query_one("#lbl-model", Label)
             if self.size.width < 60:
                 toolbar.add_class("stacked")
+                lbl.display = False
             else:
                 toolbar.remove_class("stacked")
+                lbl.display = True
         except Exception:
             pass
 
@@ -195,8 +224,11 @@ class ChatScreen(Widget):
         inp.value = ""
         self._history.append(ChatMessage(role="user", content=text))
 
-        log = self.query_one("#chat-log", RichLog)
-        log.write(Text.from_markup(f"[bold cyan]You:[/bold cyan] {text}"))
+        try:
+            log = self.query_one("#chat-log", RichLog)
+            log.write(Text.from_markup(f"[bold cyan]You:[/bold cyan] {text}"))
+        except Exception:
+            pass
 
         self._stream_response(model_id)
 
@@ -211,10 +243,13 @@ class ChatScreen(Widget):
         self._abort.clear()
         self._sync_stop_button()
 
-        streaming_row = self.query_one("#streaming-row")
-        streaming_label = self.query_one("#streaming-label", Static)
-        streaming_row.remove_class("-hidden")
-        streaming_label.update("[dim]▌[/dim]")
+        try:
+            streaming_row = self.query_one("#streaming-row")
+            streaming_label = self.query_one("#streaming-label", Static)
+            streaming_row.remove_class("-hidden")
+            streaming_label.update("[dim]▌[/dim]")
+        except Exception:
+            pass
 
         req = ChatCompletionRequest(
             model=model_id,
@@ -235,19 +270,20 @@ class ChatScreen(Widget):
                     t_first = _time.perf_counter()
                 chunk_count += 1
                 collected.append(chunk)
-                # Display a rolling preview (last 400 chars to stay performant)
                 preview = "".join(collected)
-                if len(preview) > 400:
-                    display = "…" + preview[-397:]
+                if len(preview) > 300:
+                    display = "…" + preview[-297:]
                 else:
                     display = preview
-                streaming_label.update(
-                    Text.from_markup(f"[green]Assistant:[/green] {display}[dim]▌[/dim]")
-                )
+                try:
+                    streaming_label.update(
+                        Text.from_markup(f"[green]Assistant:[/green] {display}[dim]▌[/dim]")
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             self.notify(str(e), severity="error")
 
-        # Record to MetricsStore so Live Monitor can show chat activity
         total_ms = (_time.perf_counter() - t0) * 1000.0
         ttft_ms = (t_first - t0) * 1000.0 if t_first is not None else None
         tps = (chunk_count / total_ms * 1000.0) if total_ms > 0 and chunk_count > 0 else None
@@ -267,17 +303,21 @@ class ChatScreen(Widget):
             pass
 
         full_response = "".join(collected)
-        streaming_row.add_class("-hidden")
-        streaming_label.update("")
+
+        try:
+            self.query_one("#streaming-row").add_class("-hidden")
+            self.query_one("#streaming-label", Static).update("")
+        except Exception:
+            pass
 
         if full_response:
             self._history.append(ChatMessage(role="assistant", content=full_response))
-            log = self.query_one("#chat-log", RichLog)
-            log.write(
-                Text.from_markup(f"[green]Assistant:[/green] {full_response}")
-            )
-            # Separator between turns
-            log.write(Text.from_markup("[dim]─────[/dim]"))
+            try:
+                log = self.query_one("#chat-log", RichLog)
+                log.write(Text.from_markup(f"[green]Assistant:[/green] {full_response}"))
+                log.write(Text.from_markup("[dim]─────[/dim]"))
+            except Exception:
+                pass
 
         self._streaming = False
         self._abort.clear()
@@ -291,9 +331,12 @@ class ChatScreen(Widget):
 
     def action_clear_chat(self) -> None:
         self._history.clear()
-        self.query_one("#chat-log", RichLog).clear()
-        self.query_one("#streaming-row").add_class("-hidden")
-        self.query_one("#streaming-label", Static).update("")
+        try:
+            self.query_one("#chat-log", RichLog).clear()
+            self.query_one("#streaming-row").add_class("-hidden")
+            self.query_one("#streaming-label", Static).update("")
+        except Exception:
+            pass
 
     def _sync_stop_button(self) -> None:
         try:
