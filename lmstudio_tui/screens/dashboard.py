@@ -90,6 +90,13 @@ class Dashboard(Widget):
         )
         self._refresh()
 
+    def on_show(self) -> None:
+        self._refresh_timer.resume()
+        self._refresh()
+
+    def on_hide(self) -> None:
+        self._refresh_timer.pause()
+
     def on_unmount(self) -> None:
         self._refresh_timer.stop()
 

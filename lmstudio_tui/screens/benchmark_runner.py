@@ -64,8 +64,8 @@ class BenchmarkRunner(Widget):
         padding: 0 1;
     }
     BenchmarkRunner #model-list {
-        height: 4;
-        max-height: 6;
+        height: 6;
+        max-height: 10;
         border: solid $primary-darken-3;
     }
     BenchmarkRunner #model-actions {
@@ -135,15 +135,13 @@ class BenchmarkRunner(Widget):
     BenchmarkRunner #prog-bar { width: 1fr; }
     BenchmarkRunner #prog-label { width: auto; margin-right: 1; }
 
-    /* ── Results ─────────────────────────────────────────────────── */
-    BenchmarkRunner #results-table { height: 1fr; }
-
     /* ── Summary ─────────────────────────────────────────────────── */
     BenchmarkRunner #summary-panel {
         height: auto;
-        max-height: 6;
-        border-top: solid $primary-darken-3;
+        max-height: 8;
+        border-bottom: solid $primary-darken-3;
         padding: 0 1;
+        background: $surface-darken-1;
     }
     BenchmarkRunner #summary-title {
         color: $primary;
@@ -154,6 +152,9 @@ class BenchmarkRunner(Widget):
         height: auto;
         color: $text-muted;
     }
+
+    /* ── Results ─────────────────────────────────────────────────── */
+    BenchmarkRunner #results-table { height: 1fr; }
     """
 
     running: reactive[bool] = reactive(False)
@@ -204,6 +205,11 @@ class BenchmarkRunner(Widget):
                     yield Label("Ctx len:")
                     yield Input("", id="inp-ctx", placeholder="auto")
 
+        # Summary — always visible above results
+        with Vertical(id="summary-panel"):
+            yield Label("  SUMMARY", id="summary-title")
+            yield Static("No results yet.", id="summary-content")
+
         # Progress bar
         with Horizontal(id="progress-panel", classes="-hidden"):
             yield Label("", id="prog-label")
@@ -211,11 +217,6 @@ class BenchmarkRunner(Widget):
 
         # Per-sample results table
         yield DataTable(id="results-table", cursor_type="row")
-
-        # Summary
-        with Vertical(id="summary-panel"):
-            yield Label("  SUMMARY", id="summary-title")
-            yield Static("No results yet.", id="summary-content")
 
     def on_mount(self) -> None:
         # Do NOT set up table columns here — self.size.width is 0 at mount time.

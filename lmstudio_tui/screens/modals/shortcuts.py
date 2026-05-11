@@ -34,10 +34,9 @@ class ShortcutsModal(ModalScreen[None]):
     _HELP = """\
 [bold]Navigation[/bold]
   [cyan]1[/cyan] Dashboard  [cyan]2[/cyan] Models  [cyan]3[/cyan] Chat  [cyan]4[/cyan] Monitor
-  [cyan]5[/cyan] Benchmark  [cyan]6[/cyan] Hub     [cyan]7[/cyan] Settings
-  [cyan]Ctrl+B[/cyan]  Toggle sidebar
-  [cyan]Escape[/cyan]  Focus nav / second press collapses
+  [cyan]5[/cyan] Benchmark  [cyan]6[/cyan] Downloads  [cyan]7[/cyan] Settings
   [cyan]Tab / Shift+Tab[/cyan]  Next / prev widget
+  [cyan]← →[/cyan]  Switch tabs
 
 [bold]Model Manager[/bold]
   [cyan]L[/cyan]  Load selected      [cyan]U[/cyan]  Unload selected

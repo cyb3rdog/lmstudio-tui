@@ -220,4 +220,16 @@ class Settings(Widget):
             or "~/.lmstudio-tui/benchmarks"
         )
         save_config(self.app.config)
+        # Apply poll interval immediately by restarting the Dashboard timer.
+        self._apply_poll_interval(poll)
         self.notify("Preferences saved", severity="information")
+
+    def _apply_poll_interval(self, interval: float) -> None:
+        """Restart the Dashboard refresh timer with the new interval."""
+        try:
+            from .dashboard import Dashboard
+            dash = self.app.query_one("#dashboard", Dashboard)
+            dash._refresh_timer.stop()
+            dash._refresh_timer = dash.set_interval(interval, dash._refresh)
+        except Exception:
+            pass

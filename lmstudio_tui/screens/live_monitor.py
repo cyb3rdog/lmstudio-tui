@@ -55,9 +55,20 @@ class LiveMonitor(Widget):
     def on_mount(self) -> None:
         table = self.query_one("#recent-table", DataTable)
         table.add_columns("Time", "Model", "TPS", "TTFT", "In/Out")
-        # Timer fires every second but _last_recent_ts gate ensures DOM rebuilds
-        # only when new data has arrived. This avoids unnecessary redraws.
+        # Start paused — on_show resumes so it only polls while visible.
         self._timer = self.set_interval(1.0, self._refresh)
+        self._timer.pause()
+
+    def on_show(self) -> None:
+        if not self.paused:
+            self._timer.resume()
+        # Reset staleness gates so we get a fresh paint on first show.
+        self._last_loaded_ids = frozenset()
+        self._last_recent_ts = 0.0
+        self._refresh()
+
+    def on_hide(self) -> None:
+        self._timer.pause()
 
     def on_unmount(self) -> None:
         self._timer.stop()
