@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -39,6 +40,8 @@ class ServerRegistry:
         }
         # Use provided active_server, or fall back to first server name
         self._active: str = active_server or (configs[0].name if configs else "")
+        # Per-server locks prevent concurrent connect() calls racing on the same server.
+        self._connect_locks: dict[str, asyncio.Lock] = {}
 
     @property
     def active_name(self) -> str:
@@ -76,32 +79,52 @@ class ServerRegistry:
         conn = self._connections.get(name)
         if not conn:
             return
+
+        # Serialize per-server connects so concurrent callers (Ctrl+R spam,
+        # on_mount + force_refresh) don't race and close each other's clients.
+        if name not in self._connect_locks:
+            self._connect_locks[name] = asyncio.Lock()
+        async with self._connect_locks[name]:
+            await self._connect_locked(name, conn)
+
+    async def _connect_locked(self, name: str, conn: ServerConnection) -> None:
+        # Close any existing client before creating a new one.
+        # Failing to do this leaks the underlying httpx connection pool and
+        # its file descriptors — repeated reconnects (Ctrl+R, error recovery)
+        # exhaust the OS fd limit and crash the process.
+        if conn.client:
+            try:
+                await conn.client.close()
+            except Exception:
+                pass
+            conn.client = None
+
         conn.state = ConnectionState.CONNECTING
         conn.last_error = None
+        client: LMStudioClient | None = None
         try:
             client = LMStudioClient(conn.config)
-            # Probe with list_models — this exercises auth and returns model list.
-            # ping() alone (GET /api/v1/models) succeeds even without auth, giving
-            # a false "Connected" with empty model list. list_models() surfaces 401.
             try:
                 models = await client.list_models()
                 conn.models = models
             except exc.AuthError:
-                raise  # re-raise auth errors to surface them as connection errors
+                raise
             except exc.APIError:
-                # Non-auth API errors (4xx other than 401/403) mean the server is
-                # reachable but returned a structured error. Don't block on them.
                 pass
             ping = await client.ping()
             conn.client = client
             conn.ping_ms = ping
             conn.state = ConnectionState.CONNECTED
-        except exc.AuthError as e:
+        except exc.AuthError:
             conn.state = ConnectionState.ERROR
-            conn.last_error = f"Auth failed: check API key in Settings"
+            conn.last_error = "Auth failed: check API key in Settings"
+            if client:
+                await client.close()
         except Exception as e:
             conn.state = ConnectionState.ERROR
             conn.last_error = str(e)
+            if client:
+                await client.close()
 
     async def connect_all(self) -> None:
         for name in self._connections:

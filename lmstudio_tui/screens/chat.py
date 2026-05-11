@@ -98,6 +98,9 @@ class ChatScreen(Widget):
         ("ctrl+l", "clear_chat", "Clear"),
     ]
 
+    # Oldest turns beyond this count are dropped to bound memory and API payload size.
+    _MAX_HISTORY_TURNS = 40
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._history: list[ChatMessage] = []
@@ -118,7 +121,7 @@ class ChatScreen(Widget):
             "[dim]No models loaded — go to Models screen to load one.[/dim]",
             id="empty-state",
         )
-        yield RichLog(id="chat-log", markup=True, highlight=False, wrap=True)
+        yield RichLog(id="chat-log", markup=True, highlight=False, wrap=True, max_lines=500)
         with Horizontal(id="streaming-row", classes="-hidden"):
             yield Static("", id="streaming-label")
         with Horizontal(id="input-row"):
@@ -223,6 +226,11 @@ class ChatScreen(Widget):
         model_id = str(sel.value)
         inp.value = ""
         self._history.append(ChatMessage(role="user", content=text))
+        # Drop oldest turns to keep history bounded (saves memory + API payload size).
+        # Keep pairs: trim from the front in steps of 2 (user+assistant).
+        max_msgs = self._MAX_HISTORY_TURNS * 2
+        if len(self._history) > max_msgs:
+            self._history = self._history[-max_msgs:]
 
         try:
             log = self.query_one("#chat-log", RichLog)
@@ -243,9 +251,16 @@ class ChatScreen(Widget):
         self._abort.clear()
         self._sync_stop_button()
 
+        # Guard all widget queries: widget may be unmounted if user quits mid-stream.
         try:
             streaming_row = self.query_one("#streaming-row")
             streaming_label = self.query_one("#streaming-label", Static)
+        except Exception:
+            self._streaming = False
+            self._sync_stop_button()
+            return
+
+        try:
             streaming_row.remove_class("-hidden")
             streaming_label.update("[dim]▌[/dim]")
         except Exception:

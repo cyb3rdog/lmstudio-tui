@@ -121,7 +121,7 @@ class ModelManager(Widget):
 
     # ── actions (all decorated with @work so push_screen_wait is safe) ────────
 
-    @work(exclusive=True)
+    @work
     async def action_refresh(self) -> None:
         client = self.app.server_registry.active_client
         

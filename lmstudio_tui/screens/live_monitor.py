@@ -39,6 +39,12 @@ class LiveMonitor(Widget):
 
     paused: reactive[bool] = reactive(False)
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        # Track last-seen state to avoid rebuilding table when nothing changed.
+        self._last_recent_ts: float = 0.0
+        self._last_loaded_ids: frozenset[str] = frozenset()
+
     def compose(self) -> ComposeResult:
         yield Static("  Live Monitor   [dim][P] Pause[/dim]", id="toolbar")
         with ScrollableContainer(id="panels-scroll"):
@@ -78,30 +84,40 @@ class LiveMonitor(Widget):
         loaded = [m for m in models if m.is_loaded]
         store = self.app.metrics_store
         active = self.app.server_registry.active_name
+        loaded_ids = frozenset(m.id for m in loaded)
 
-        panels_container = self.query_one("#metric-panels", Vertical)
-        existing = {p._model_id for p in panels_container.query(MetricPanel)}
-        loaded_ids = {m.id for m in loaded}
+        # ── Metric panels: only modify DOM when set of loaded models changes ──
+        if loaded_ids != self._last_loaded_ids:
+            self._last_loaded_ids = loaded_ids
+            panels_container = self.query_one("#metric-panels", Vertical)
+            existing = {p._model_id for p in panels_container.query(MetricPanel)}
 
-        for panel in list(panels_container.query(MetricPanel)):
-            if panel._model_id not in loaded_ids:
-                await panel.remove()
+            for panel in list(panels_container.query(MetricPanel)):
+                if panel._model_id not in loaded_ids:
+                    await panel.remove()
 
-        for model in loaded:
-            if model.id not in existing:
-                safe_id = re.sub(r"[^a-zA-Z0-9_-]", "-", model.id)
-                panels_container.mount(MetricPanel(model.id, id=f"mp-{safe_id}"))
+            for model in loaded:
+                if model.id not in existing:
+                    safe_id = re.sub(r"[^a-zA-Z0-9_-]", "-", model.id)
+                    panels_container.mount(MetricPanel(model.id, id=f"mp-{safe_id}"))
+        else:
+            panels_container = self.query_one("#metric-panels", Vertical)
 
+        # Always update sparkline data (cheap reactive assignment, no DOM mutation)
         for panel in panels_container.query(MetricPanel):
             mid = panel._model_id
             panel.tps_data = store.get_tps_series(active, mid)
             panel.ttft_data = store.get_ttft_series(active, mid)
 
-        # Update recent requests table
+        # ── Recent requests table: only rebuild when new samples exist ────────
+        recent = store.all_recent(active, limit=20)
+        newest_ts = recent[0].timestamp if recent else 0.0
+        if newest_ts <= self._last_recent_ts:
+            return
+        self._last_recent_ts = newest_ts
+
         table = self.query_one("#recent-table", DataTable)
         table.clear()
-        recent = store.all_recent(active, limit=20)
-        # Truncate model ID based on available width
         w = self.size.width
         mid_len = max(12, min(28, w - 40))
         for s in recent:
