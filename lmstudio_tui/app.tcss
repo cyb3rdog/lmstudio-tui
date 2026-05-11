@@ -1,68 +1,15 @@
-/* ── App-level layout ─────────────────────────────────────────────────────── */
+/* ── Tabs navigation bar ──────────────────────────────────────────────────── */
 
-#main-layout {
-    width: 1fr;
-    height: 1fr;
-}
-
-/* ── Portrait mini-header ─────────────────────────────────────────────────── */
-
-/* Shown only when sidebar is hidden (toggled by watch_sidebar_visible).
-   Displays server status, current screen name, and number-key hints.   */
-#mini-header {
-    width: 100%;
-    height: 2;
-    background: $primary-darken-3;
-    dock: top;
-    display: none;
-    padding: 0 1;
-    color: $text;
-    text-style: bold;
-    border-bottom: solid $primary-darken-2;
-}
-
-/* ── Sidebar ──────────────────────────────────────────────────────────────── */
-
-#sidebar {
-    width: 22;
-    height: 1fr;
-    background: $surface-darken-1;
-    border-right: solid $primary-darken-3;
-}
-
-#sidebar-title {
-    padding: 1 1;
-    text-style: bold;
-    color: $primary;
+#nav-tabs {
     height: 3;
-    border-bottom: solid $primary-darken-3;
+    background: $primary-darken-3;
+    border-bottom: solid $primary-darken-2;
+    dock: top;
+    padding: 0 1;
 }
 
-#nav-list {
-    height: 1fr;
-    background: $surface-darken-1;
-    border: none;
-    padding: 0;
-}
-
-#nav-list > ListItem {
-    padding: 0;
-    background: $surface-darken-1;
-}
-
-#nav-list > ListItem:hover {
-    background: $primary-darken-2;
-}
-
-#nav-list > ListItem.--highlight {
-    background: $primary;
-    color: $text;
-    text-style: bold;
-}
-
-#nav-list:focus {
-    border: none;
-    outline: none;
+#nav-tabs Tab {
+    padding: 0 1;
 }
 
 /* ── Content area ─────────────────────────────────────────────────────────── */
@@ -70,6 +17,7 @@
 #content-area {
     width: 1fr;
     height: 1fr;
+    overflow: hidden auto;
 }
 
 /* ── Focus rings ──────────────────────────────────────────────────────────── */
