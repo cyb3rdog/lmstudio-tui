@@ -58,6 +58,9 @@ class Settings(Widget):
     Settings Input { margin: 0; }
     """
 
+    # Debounce resize-triggered server list reloads.
+    _resize_debounce: bool = False
+
     def compose(self) -> ComposeResult:
         with Horizontal(id="layout"):
             with Vertical(id="server-panel"):
@@ -78,6 +81,7 @@ class Settings(Widget):
                 yield Button("Save Preferences", id="btn-save-prefs", variant="primary")
 
     def on_mount(self) -> None:
+        self._resize_debounce = False
         self._load_server_list()
         self.query_one("#inp-poll", Input).value = str(self.app.config.ui.poll_interval_s)
         self.query_one("#inp-export-dir", Input).value = self.app.config.benchmark.export_dir
@@ -85,6 +89,13 @@ class Settings(Widget):
 
     def on_resize(self) -> None:
         self._update_layout()
+        # Debounce: reload server list only when not already pending.
+        if not self._resize_debounce:
+            self._resize_debounce = True
+            self.call_next(self._load_server_list_and_reset_debounce)
+
+    def _load_server_list_and_reset_debounce(self) -> None:
+        self._resize_debounce = False
         self._load_server_list()
 
     def _update_layout(self) -> None:
@@ -192,10 +203,18 @@ class Settings(Widget):
     def _save_prefs(self) -> None:
         try:
             poll = float(self.query_one("#inp-poll", Input).value or "3.0")
-            self.app.config.ui.poll_interval_s = poll
         except ValueError:
             self.notify("Poll interval must be a number", severity="error")
             return
+        # Enforce minimum poll interval to prevent CPU saturation on constrained hardware.
+        if poll < 0.5:
+            self.notify(
+                f"Poll interval must be ≥ 0.5 s (clamped from {poll}).",
+                severity="warning",
+                timeout=4.0,
+            )
+            poll = 0.5
+        self.app.config.ui.poll_interval_s = poll
         self.app.config.benchmark.export_dir = (
             self.query_one("#inp-export-dir", Input).value.strip()
             or "~/.lmstudio-tui/benchmarks"

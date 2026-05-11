@@ -13,9 +13,9 @@ A terminal-based UI for managing, monitoring, chatting with, and benchmarking [L
 | **Benchmark** | Multi-model, multi-mode benchmarking (throughput, tool calling, parallel); CSV/JSON/Markdown export |
 | **Settings** | Server CRUD, connection test, poll interval preference |
 
-### Model Hub (screen `6`)
+### Download Manager (screen `6`)
 
-Press **6** or **D** from the Models screen to open the **Hub** — a full-screen, searchable browser of GGUF models from HuggingFace. Default view shows the top 60 models by download count. Search by name, select a row, click **↓ Download** and the download starts on your LM Studio server while you watch progress in the Models screen.
+Press **6** or **D** from the Models screen to open the **Downloads** screen — a full-screen, searchable browser of GGUF models from HuggingFace. Default view shows the top 60 models by download count. Search by name, select a row, click **↓ Download** and the download starts on your LM Studio server while you watch progress.
 
 ## Installation
 
@@ -79,7 +79,7 @@ poll_interval_s = 3.0
 
 | Key | Action |
 |-----|--------|
-| `1` – `7` | Dashboard / Models / Chat / Monitor / Benchmark / Hub / Settings |
+| `1` – `7` | Dashboard / Models / Chat / Monitor / Benchmark / Downloads / Settings |
 | `Ctrl+B` | Toggle sidebar |
 | `Escape` | Focus nav sidebar (second press collapses it) |
 | `?` | Show keyboard-shortcuts overlay |
@@ -92,7 +92,7 @@ poll_interval_s = 3.0
 |-----|--------|
 | `L` | Load selected model |
 | `U` | Unload selected model |
-| `D` | Open Model Hub (browse & download) |
+| `D` | Open Download Manager (browse & download) |
 | `R` | Refresh model list |
 
 ### Monitor screen
@@ -120,13 +120,13 @@ poll_interval_s = 3.0
 - Python 3.11+
 - LM Studio 0.3+ (v1 API)
 - Terminal with Unicode and color support
-- Internet access on the TUI host for Model Hub search (download is performed by the LM Studio server)
+- Internet access on the TUI host for Download Manager search (download is performed by the LM Studio server)
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest              # 112 tests
+pytest              # 212 tests
 ```
 
 ### Project structure
@@ -136,8 +136,8 @@ lmstudio_tui/
 ├── api/            # LMStudioClient (httpx), HuggingFace Hub client
 ├── benchmark/      # Engine, analysis, export
 ├── config/         # TOML models and loader
-├── screens/        # Dashboard, Models, Chat, Monitor, Benchmark, Settings
-│   └── modals/     # ConfirmModal, ModelLoadModal, DownloadManagerModal, …
+├── screens/        # Dashboard, Models, Chat, Monitor, Benchmark, DownloadManager, Settings
+│   └── modals/     # ConfirmModal, ModelLoadModal, OnboardingModal, ServerForm, ShortcutsModal
 ├── state/          # ServerRegistry, MetricsStore
 ├── utils/          # Formatting helpers
 └── widgets/        # ModelCard, MetricPanel, ComparisonChart, …
@@ -147,8 +147,9 @@ lmstudio_tui/
 
 - **TTFT** is wall-clock time from request to first chunk; LM Studio's `stats` field is always empty.
 - **VRAM** shows `—`; the LM Studio v1 API does not expose per-model VRAM usage.
-- **Download progress** returns 404 on some LM Studio versions; the progress bar hides gracefully.
+- **Download cancel** is best-effort; the server may continue downloading. There is no cancel API in LM Studio v1.
 - **reasoning_tokens** is a streaming chunk-count proxy, not real token counts.
+- **prompt_tokens** for streaming chat responses is `0`; LM Studio does not send `usage` in streaming chunks.
 
 ## License
 

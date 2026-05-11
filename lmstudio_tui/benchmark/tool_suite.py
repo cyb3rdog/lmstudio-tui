@@ -180,7 +180,13 @@ TOOL_TEST_CASES: list[ToolTestCase] = [
 
 
 def get_tool_cases_for_mode(subset: str = "all") -> list[ToolTestCase]:
-    """Return test cases; subset='all'|'calculator'|'weather'|'string'|'search'."""
+    """Return test cases filtered by tool subset.
+
+    The returned cases share the same tool schema. When mode = "all",
+    each case is evaluated against only its own tool (calculator, weather,
+    string, or search) — not all 4 tools at once — so the benchmark
+    correctly measures per-tool accuracy.
+    """
     if subset == "all":
         return TOOL_TEST_CASES
     tag_map = {

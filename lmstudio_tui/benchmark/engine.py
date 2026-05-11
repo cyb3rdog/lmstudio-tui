@@ -146,6 +146,8 @@ class BenchmarkEngine:
     async def _infer_tool(
         self, model_id: str, tc: ToolTestCase, spec: BenchmarkSpec
     ) -> CompletionMetrics:
+        # Always send only the tool relevant to this test case (1 tool, not all 4).
+        # The tool_subset filter in get_tool_cases_for_mode() controls which cases run.
         req = ChatCompletionRequest(
             model=model_id,
             messages=[ChatMessage(role="user", content=tc.prompt)],
@@ -217,7 +219,7 @@ class BenchmarkEngine:
         t_wall_start = time.perf_counter()
 
         # Event queue so we can yield results as they come in
-        result_queue: asyncio.Queue[dict] = asyncio.Queue()
+        result_queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=spec.parallel_total)
 
         async def _task(prompt: str, idx: int) -> None:
             async with semaphore:

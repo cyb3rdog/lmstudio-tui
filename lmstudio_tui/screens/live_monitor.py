@@ -55,6 +55,8 @@ class LiveMonitor(Widget):
     def on_mount(self) -> None:
         table = self.query_one("#recent-table", DataTable)
         table.add_columns("Time", "Model", "TPS", "TTFT", "In/Out")
+        # Timer fires every second but _last_recent_ts gate ensures DOM rebuilds
+        # only when new data has arrived. This avoids unnecessary redraws.
         self._timer = self.set_interval(1.0, self._refresh)
 
     def on_unmount(self) -> None:
@@ -73,6 +75,8 @@ class LiveMonitor(Widget):
 
     @work(exclusive=True)
     async def _refresh(self) -> None:
+        # @work catches all exceptions; return early on no-client to avoid DOM queries
+        # against potentially unmounted widgets when the server has disconnected.
         client = self.app.server_registry.active_client
         if not client:
             return

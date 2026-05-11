@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.widget import Widget
-from textual.widgets import Button, DataTable, Label, ProgressBar, Static
+from textual.widgets import Button, DataTable
 from textual import work
 
 from ..config.models import ModelPref
@@ -16,6 +16,8 @@ from .modals.model_load import ModelLoadModal
 
 
 class ModelManager(Widget):
+    """Manage loaded and unloaded models on the server: load, unload, refresh."""
+
     DEFAULT_CSS = """
     ModelManager {
         width: 1fr;
@@ -28,47 +30,27 @@ class ModelManager(Widget):
         background: $surface-darken-1;
         border-top: solid $primary-darken-3;
     }
-    ModelManager #dl-bar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-2;
-        border-top: solid $primary-darken-3;
-        align: left middle;
-    }
-    ModelManager #dl-bar.-hidden { display: none; }
-    ModelManager #dl-label { width: auto; margin-right: 1; }
-    ModelManager #dl-progress { width: 1fr; }
-    ModelManager #btn-dl-cancel { width: auto; margin-left: 1; }
     ModelManager Button { margin: 0 1 0 0; }
     """
 
     BINDINGS = [
-        ("l", "load_model",     "Load"),
-        ("u", "unload_model",   "Unload"),
-        ("d", "download_model", "Hub"),
-        ("r", "refresh",        "Refresh"),
+        ("l", "load_model",   "Load"),
+        ("u", "unload_model", "Unload"),
+        ("d", "goto_downloads", "Downloads"),
+        ("r", "refresh",      "Refresh"),
     ]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._focused_id: str | None = None
-        self._dl_timer = None
-        self._dl_client = None
-        self._dl_model_id = ""
 
     def compose(self) -> ComposeResult:
-        # Table fills all available space
         yield DataTable(id="models-table", cursor_type="row")
-        # Buttons live below the table
         with Horizontal(id="toolbar"):
-            yield Button("Load [L]",    id="btn-load",     variant="primary")
-            yield Button("Unload [U]",  id="btn-unload",   variant="default")
-            yield Button("Hub [D]",     id="btn-hub",      variant="default")
-            yield Button("Refresh [R]", id="btn-refresh",  variant="default")
-        with Horizontal(id="dl-bar", classes="-hidden"):
-            yield Label("Downloading: ", id="dl-label")
-            yield ProgressBar(id="dl-progress", total=100, show_eta=False)
-            yield Button("✕ Cancel", id="btn-dl-cancel", variant="error")
+            yield Button("Load [L]",   id="btn-load",    variant="primary")
+            yield Button("Unload [U]", id="btn-unload",  variant="default")
+            yield Button("Downloads [D]", id="btn-downloads", variant="default")
+            yield Button("Refresh [R]", id="btn-refresh", variant="default")
 
     def on_mount(self) -> None:
         self._setup_columns(self.query_one("#models-table", DataTable))
@@ -91,10 +73,6 @@ class ModelManager(Widget):
             table.add_column("Ctx",    width=6)
             table.add_column("VRAM",   width=6)
 
-    def on_unmount(self) -> None:
-        if self._dl_timer:
-            self._dl_timer.stop()
-
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.data_table.id == "models-table" and event.row_key:
             self._focused_id = (
@@ -105,13 +83,16 @@ class ModelManager(Widget):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
-            case "btn-load":      self.action_load_model()
-            case "btn-unload":    self.action_unload_model()
-            case "btn-hub":       self.action_download_model()
-            case "btn-refresh":   self.action_refresh()
-            case "btn-dl-cancel": self._cancel_download()
+            case "btn-load":    self.action_load_model()
+            case "btn-unload":  self.action_unload_model()
+            case "btn-downloads": self.action_goto_downloads()
+            case "btn-refresh": self.action_refresh()
 
     # ── actions ───────────────────────────────────────────────────────────────
+
+    def action_goto_downloads(self) -> None:
+        """Navigate to the Downloads screen to browse and download models."""
+        self.app.action_goto("downloads")
 
     @work
     async def action_refresh(self) -> None:
@@ -172,14 +153,7 @@ class ModelManager(Widget):
         if confirmed:
             self._do_unload(model_id)
 
-    def action_download_model(self) -> None:
-        """Navigate to the Hub screen to browse and download models."""
-        self.app.action_goto("hub")
-
     # ── helpers ───────────────────────────────────────────────────────────────
-
-    def _focused_model_id(self) -> str | None:
-        return self._focused_id
 
     @work
     async def _do_load(self, request) -> None:
@@ -205,84 +179,28 @@ class ModelManager(Widget):
         if not client:
             return
         try:
-            models = await client.list_models()
-            instance_id = next(
-                (m.instance_id for m in models if m.id == model_id and m.instance_id),
-                None,
-            )
+            # Fast path: instance_id may be cached in the server registry.
+            # Fall back to list_models() only if not found.
+            conn = self.app.server_registry.active_connection
+            instance_id: str | None = None
+            if conn:
+                cached = next(
+                    (m.instance_id for m in conn.models if m.id == model_id),
+                    None,
+                )
+                if cached:
+                    instance_id = cached
+            if not instance_id:
+                models = await client.list_models()
+                instance_id = next(
+                    (m.instance_id for m in models if m.id == model_id and m.instance_id),
+                    None,
+                )
             if not instance_id:
                 self.notify(f"No loaded instance found for {model_id}", severity="warning")
                 return
             await client.unload_model(instance_id)
-            self.notify(f"Unloaded {model_id}", severity="information")
             self.action_refresh()
+            self.notify(f"Unloaded {model_id}", severity="information")
         except Exception as e:
             self.notify(str(e), severity="error")
-
-    @work
-    async def _do_download(self, model_id: str) -> None:
-        client = self.app.server_registry.active_client
-        if not client:
-            return
-        try:
-            await client.download_model(model_id)
-            self.notify(f"Download started: {model_id}")
-            self._start_download_poll(client, model_id)
-        except Exception as e:
-            err_str = str(e)
-            if "404" in err_str or "Not Found" in err_str:
-                self.notify(
-                    "Download not supported on this server version. "
-                    "Use the LM Studio desktop app to download models.",
-                    severity="warning",
-                    timeout=8.0,
-                )
-            else:
-                self.notify(err_str, severity="error")
-
-    def _start_download_poll(self, client, model_id: str = "") -> None:
-        self._dl_client = client
-        self._dl_model_id = model_id
-        dl_bar = self.query_one("#dl-bar")
-        dl_bar.remove_class("-hidden")
-        self.query_one("#dl-label", Label).update(f"Downloading: {model_id}  ")
-        self.query_one("#dl-progress", ProgressBar).update(progress=0)
-        if self._dl_timer:
-            self._dl_timer.stop()
-        self._dl_timer = self.set_interval(2.0, self._poll_download)
-
-    def _cancel_download(self) -> None:
-        if self._dl_timer:
-            self._dl_timer.stop()
-            self._dl_timer = None
-        self.query_one("#dl-bar").add_class("-hidden")
-        self.notify("Download cancelled", severity="warning")
-
-    @work(exclusive=True)
-    async def _poll_download(self) -> None:
-        client = self._dl_client or self.app.server_registry.active_client
-        if not client:
-            return
-        status = await client.get_download_status()
-        if not status:
-            if self._dl_timer:
-                self._dl_timer.stop()
-                self._dl_timer = None
-            self.query_one("#dl-bar").add_class("-hidden")
-            return
-        name = status.model or getattr(self, "_dl_model_id", "")
-        self.query_one("#dl-label", Label).update(f"Downloading: {name}  ")
-        self.query_one("#dl-progress", ProgressBar).update(progress=int(status.progress * 100))
-        if status.status == "complete":
-            if self._dl_timer:
-                self._dl_timer.stop()
-                self._dl_timer = None
-            self.query_one("#dl-bar").add_class("-hidden")
-            self.notify(f"Downloaded {name}", severity="information")
-            self.action_refresh()
-        elif status.status == "error":
-            if self._dl_timer:
-                self._dl_timer.stop()
-                self._dl_timer = None
-            self.query_one("#dl-bar").add_class("-hidden")
-            self.notify(f"Download failed: {name}", severity="error")

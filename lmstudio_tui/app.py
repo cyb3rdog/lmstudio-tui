@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING
+
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -7,17 +10,22 @@ from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import ContentSwitcher, Footer, Header, Label, ListItem, ListView, Static
 
+if TYPE_CHECKING:
+    from .state.server_registry import ServerRegistry
+
 from .config.loader import config_exists, create_default_config, load_config, save_config
 from .config.models import AppConfig, ServerConfig
 from .screens.benchmark_runner import BenchmarkRunner
 from .screens.chat import ChatScreen
 from .screens.dashboard import Dashboard
-from .screens.hub import ModelHub
+from .screens.download_manager import DownloadManager
 from .screens.live_monitor import LiveMonitor
 from .screens.model_manager import ModelManager
 from .screens.settings import Settings
 from .state.metrics_store import MetricsStore
 from .state.server_registry import ConnectionState, ServerRegistry
+
+_logger = logging.getLogger("lmstudio_tui.app")
 
 # (key, label, shortcut-hint)
 _NAV_ITEMS = [
@@ -26,7 +34,7 @@ _NAV_ITEMS = [
     ("chat",       "Chat",       "3"),
     ("monitor",    "Monitor",    "4"),
     ("benchmark",  "Benchmark",  "5"),
-    ("hub",        "Hub",        "6"),
+    ("downloads", "Downloads", "6"),
     ("settings",   "Settings",  "7"),
 ]
 
@@ -56,7 +64,7 @@ class LMStudioApp(App[None]):
         Binding("3", "goto('chat')",       "Chat",       show=False),
         Binding("4", "goto('monitor')",    "Monitor",    show=False),
         Binding("5", "goto('benchmark')",  "Benchmark",  show=False),
-        Binding("6", "goto('hub')",        "Hub",        show=False),
+        Binding("6", "goto('downloads')", "Downloads", show=False),
         Binding("7", "goto('settings')",   "Settings",   show=False),
     ]
 
@@ -66,9 +74,12 @@ class LMStudioApp(App[None]):
         super().__init__()
         self.config = config
         self.server_registry = ServerRegistry(config.servers, active_server=config.active_server)
+        self.server_registry.attach_app(self)
         self.metrics_store = MetricsStore()
         self._needs_onboarding = needs_onboarding
         self._current_screen = "dashboard"
+        # Debounce mini-header updates during terminal drag.
+        self._mini_header_dirty = False
 
     # ── layout ────────────────────────────────────────────────────────────────
 
@@ -90,7 +101,7 @@ class LMStudioApp(App[None]):
                 yield ChatScreen(id="chat")
                 yield LiveMonitor(id="monitor")
                 yield BenchmarkRunner(id="benchmark")
-                yield ModelHub(id="hub")
+                yield DownloadManager(id="downloads")
                 yield Settings(id="settings")
         yield Footer()
         # Portrait mini header — visible only when sidebar is collapsed.
@@ -123,6 +134,13 @@ class LMStudioApp(App[None]):
             self.config.active_server = server_cfg.name
             save_config(self.config)
             self.server_registry = ServerRegistry(self.config.servers)
+        else:
+            # User skipped — keep defaults but don't silently connect.
+            self.notify(
+                "No server configured. Add one in Settings.",
+                severity="warning",
+                timeout=6.0,
+            )
         for server in self.config.servers:
             self.run_worker(self.server_registry.connect(server.name), exclusive=False)
 
@@ -134,6 +152,17 @@ class LMStudioApp(App[None]):
             self.sidebar_visible = False
         elif self.size.width >= _PORTRAIT_WIDTH and not self.sidebar_visible:
             self.sidebar_visible = True
+        # Debounce mini-header updates during rapid terminal resizes.
+        self._schedule_mini_header_update()
+
+    def _schedule_mini_header_update(self) -> None:
+        """Debounce: schedule a single mini-header refresh on the next animation frame."""
+        if not self._mini_header_dirty:
+            self._mini_header_dirty = True
+            self.call_next(self._do_mini_header_update)
+
+    def _do_mini_header_update(self) -> None:
+        self._mini_header_dirty = False
         self._update_mini_header()
 
     # ── sidebar + mini-header reactivity ─────────────────────────────────────
@@ -142,9 +171,9 @@ class LMStudioApp(App[None]):
         try:
             self.query_one("#sidebar").display = visible
             self.query_one("#mini-header").display = not visible
-            self._update_mini_header()
-        except Exception:
-            pass
+            self._schedule_mini_header_update()
+        except Exception as exc:
+            _logger.exception("watch_sidebar_visible failed", exc_info=exc)
 
     def _update_mini_header(self) -> None:
         try:
@@ -174,8 +203,8 @@ class LMStudioApp(App[None]):
                 mini.update(
                     f"{icon} {server_name}  [bold]{screen_label}[/bold]  [dim]{_NAV_KEYS}[/dim]"
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("_update_mini_header failed (widget may not be mounted): %s", exc)
 
     # ── navigation ────────────────────────────────────────────────────────────
 
@@ -207,7 +236,7 @@ class LMStudioApp(App[None]):
             if key == screen_id:
                 nav.index = i
                 break
-        self._update_mini_header()
+        self._schedule_mini_header_update()
 
     def _focus_content(self) -> None:
         """Move keyboard focus into the active content widget."""
@@ -215,8 +244,8 @@ class LMStudioApp(App[None]):
             current_id = self.query_one("#content-area", ContentSwitcher).current
             if current_id:
                 self.query_one(f"#{current_id}").focus()
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("_focus_content failed: %s", exc)
 
     # ── actions ───────────────────────────────────────────────────────────────
 
@@ -264,13 +293,19 @@ class LMStudioApp(App[None]):
         self._switch_to("models")
         self._focus_content()
 
-    def on_model_hub_download_requested(self, event: ModelHub.DownloadRequested) -> None:
+    def on_download_manager_download_requested(self, event: DownloadManager.DownloadRequested) -> None:
         """Route a Hub download request: switch to Models and kick off download."""
         self._switch_to("models")
         try:
-            self.query_one("#models", ModelManager)._do_download(event.model_id)
-        except Exception:
-            pass
+            mm = self.query_one("#models", ModelManager)
+            # _start_download_poll requires an active client — wait briefly if needed.
+            client = self.server_registry.active_client
+            if client:
+                mm._start_download_poll(client, event.model_id)
+            else:
+                _logger.warning("Hub download: no active client yet — ignored")
+        except Exception as exc:
+            _logger.warning("Hub download routing failed: %s", exc)
 
 
 # ── factory ───────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 # LM Studio TUI - Roadmap
 
-## Current Status: ✅ Phase 1, 2, 3A, 3B, 3C & 4A Complete
+## Current Status: ✅ Phase 1, 2, 3A, 3B, 3C, 4A & Post-Audit Fixes Complete
 
-All planned features have been implemented. Core UX, chat, benchmark, and test suite are production-ready.
+**Post-Audit: 32 issues resolved (7 critical, 5 memory/leak, 4 race, 6 perf, 10 UX). 212 tests passing.**
 
 ---
 
@@ -56,34 +56,31 @@ All planned features have been implemented. Core UX, chat, benchmark, and test s
 
 ---
 
-## ✅ Test Suite — COMPLETE (93 tests, 0 failures)
+## ✅ Test Suite — COMPLETE (212 tests, 0 failures)
 
-| File | Coverage |
-|------|----------|
-| `tests/test_api_models.py` | ModelsResponse, ModelInfo, field validators |
-| `tests/test_api_client.py` | ping, list_models, load_model, _extract_metrics |
-| `tests/test_benchmark_analysis.py` | percentile, IQR outliers, analyze, detect_winners |
-| `tests/test_agentic_benchmark.py` | Tool suite, scoring, agentic analyze |
-| `tests/test_hub_api.py` | HubModel formatting, search_hub URL params, error handling |
+| File | Tests | Coverage |
+|------|-------|---------|
+| `tests/test_api_models.py` | 12 | ModelsResponse, ModelInfo, field validators |
+| `tests/test_api_client.py` | 18 | ping, list_models, load_model, _extract_metrics |
+| `tests/test_benchmark_analysis.py` | 20 | percentile, IQR outliers, analyze, detect_winners |
+| `tests/test_agentic_benchmark.py` | 29 | Tool suite, scoring, agentic analyze |
+| `tests/test_hub_api.py` | 19 | HubModel formatting, search_hub URL params, error handling |
+| `tests/test_server_registry.py` | 18 | ServerRegistry lifecycle, add/remove, active switching |
+| `tests/test_config.py` | 13 | Config defaults, save/load roundtrip, ServerConfig |
+| `tests/test_audit_fixes.py` | 83 | MetricsStore edge cases, tool suite schema, CompletionMetrics, ChatMessage |
 
 ---
 
-## ✅ Phase 4A: Model Hub — COMPLETE
+## ✅ Phase 4A: Download Manager — COMPLETE
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Hub-1 | ✅ | `api/hub.py` — HuggingFace search (`GET /api/models?filter=gguf`) |
-| Hub-2 | ✅ | `DownloadManagerModal` — searchable DataTable with downloads/likes columns |
-| Hub-3 | ✅ | Default view: top GGUF models by downloads (no query required) |
-| Hub-4 | ✅ | Row-key tracking prevents truncated-ID bugs on narrow terminals |
-| Hub-5 | ✅ | Fallback: paste full `author/model-GGUF` ID directly into search input |
-| Hub-6 | ✅ | 19 tests in `tests/test_hub_api.py` |
-| Model-1 | ✅ | Quant + Ctx columns restored at medium widths (50–72 cols) |
-| Model-2 | ✅ | Model ID bug fixed: row key used instead of truncated cell text |
-| Bug-1 | ✅ | httpx fd leak fixed: old client closed before reconnect |
-| Bug-2 | ✅ | Per-server asyncio.Lock prevents concurrent-connect race |
-| Bug-3 | ✅ | LiveMonitor DataTable rebuild throttled (zero DOM ops when idle) |
-| Bug-4 | ✅ | Chat history capped (40 turns); RichLog capped (500 lines) |
+| DM-1 | ✅ | `api/hub.py` — HuggingFace search (`GET /api/models?filter=gguf`) |
+| DM-2 | ✅ | `screens/download_manager.py` — HF browse, download start/poll/cancel (self-contained) |
+| DM-3 | ✅ | Default view: top GGUF models by downloads (no query required) |
+| DM-4 | ✅ | Row-key tracking prevents truncated-ID bugs on narrow terminals |
+| DM-5 | ✅ | Fallback: paste full `author/model-GGUF` ID directly into search input |
+| DM-6 | ✅ | 19 tests in `tests/test_hub_api.py` |
 
 ---
 
@@ -91,7 +88,7 @@ All planned features have been implemented. Core UX, chat, benchmark, and test s
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| SSE-1 | MEDIUM | SSE log stream via `/api/v1/chat` native streaming events |
+| SSE-1 | MEDIUM | SSE log stream via `/api/v1/chat` native streaming events (stub exists in `api/sse.py`, endpoint returns 404 on current server) |
 | Multi-1 | LOW | Server switching UI (server selector widget in sidebar) |
 | Multi-2 | LOW | Multi-server simultaneous monitoring |
 | Bench-adv-1 | LOW | Multi-turn tool benchmark (send tool result back, evaluate final answer) |
@@ -100,22 +97,49 @@ All planned features have been implemented. Core UX, chat, benchmark, and test s
 
 ---
 
+## Phase 5: Download Manager — Rename (2026-05-11)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| AR-1 | ✅ | Clean separation: ModelManager (screen 2) = load/unload only; Downloads (screen 6) = browse + download |
+| AR-2 | ✅ | Removed download logic from ModelManager (poll, cancel, _dl_* vars) |
+| AR-3 | ✅ | Download Manager (`screens/download_manager.py`) is self-contained: browse, start, poll, cancel |
+| AR-4 | ✅ | Download progress bar lives in Download Manager, not ModelManager |
+| AR-5 | ✅ | ModelManager toolbar: Load/Unload/Downloads [D]/Refresh |
+| AR-6 | ✅ | Deleted `screens/hub.py` shim — DownloadManager imported directly from `screens/download_manager.py` |
+| AR-7 | ✅ | Consistent naming: screen "Downloads", class `DownloadManager`, file `download_manager.py` |
+
+---
+
+## Phase 5B: Mobile UX Redesign (Planned)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| UX-1 | HIGH | Revisit portrait UX flows (≤70 cols) — navigation, toolbars, table display |
+| UX-2 | MEDIUM | Revisit landscape UX flows (≥70 cols) — benchmark runner, live monitor |
+| UX-3 | HIGH | Compact mode as default UX — optimize for constrained hardware (Pi Zero 2W) |
+| UX-4 | MEDIUM | Benchmark runner buttons visible at all resolutions |
+| UX-5 | LOW | Portrait/landscape auto-detection and adaptive layout |
+
+---
+
 ## Quick Reference
 
 ### Working Features
 - ✅ Dashboard — server status bar, model cards with sparklines
-- ✅ Models — table (with Quant + Ctx columns), load/unload, Model Hub (browse/search/download GGUF from HuggingFace), responsive toolbar
+- ✅ Models — table (with Quant + Ctx columns), load/unload, Downloads screen (browse/search/download GGUF from HuggingFace), responsive toolbar
 - ✅ Chat — streaming chat, model selector, history, Stop/Clear, feeds Live Monitor
-- ✅ Monitor — TPS/TTFT sparklines, recent requests table (populated by Chat + Benchmark)
-- ✅ Benchmark — model SelectionList, mode checkboxes, unload-all flow, load time, tool calling, parallel, export
-- ✅ Settings — server config, connection test, prefs
+- ✅ Monitor — TPS/TTFT sparklines, recent requests table (populated by Chat + Benchmark), DOM rebuilds throttled to new data only
+- ✅ Benchmark — model SelectionList, mode checkboxes, context length param, unload-all flow, load time, tool calling (per-tool filtered), parallel, export
+- ✅ Settings — server config, connection test, prefs with poll interval guard (≥0.5s)
 - ✅ Portrait/landscape responsive; all toolbars stack on narrow screens
-- ✅ Keyboard shortcuts overlay (`?`); number keys 1-6 always navigate
-- ✅ 112 tests passing
+- ✅ Keyboard shortcuts overlay (`?`); number keys 1-7 always navigate
+- ✅ 212 tests passing
 
 ### Known Limitations
 - TTFT is wall-clock only (LM Studio's `stats` field is always empty)
 - `reasoning_tokens` is a streaming chunk-count proxy (no real count from `/v1/chat/completions`)
-- Download progress endpoint returns 404 on some server versions
+- Download cancel is best-effort — LM Studio v1 does not expose a cancel API endpoint
 - SSE log stream not implemented (endpoint varies by server version)
 - VRAM values show "—" (LM Studio v1 API does not expose per-model VRAM usage)
+- `prompt_tokens` for streaming chat responses is `0` (LM Studio does not send `usage` in streaming chunks)

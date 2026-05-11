@@ -182,8 +182,9 @@ class ChatScreen(Widget):
 
         if loaded:
             sel.set_options([(m.id, m.id) for m in loaded])
-            if sel.value is Select.BLANK:
-                sel.value = loaded[0].id
+            # Always reset to the first loaded model — the previous selection
+            # may have been unloaded from another screen.
+            sel.value = loaded[0].id
             empty.add_class("-hidden")
             log.remove_class("-hidden")
         else:
@@ -302,8 +303,8 @@ class ChatScreen(Widget):
         total_ms = (_time.perf_counter() - t0) * 1000.0
         ttft_ms = (t_first - t0) * 1000.0 if t_first is not None else None
         tps = (chunk_count / total_ms * 1000.0) if total_ms > 0 and chunk_count > 0 else None
+        prompt_tokens = 0  # LM Studio does not send usage in streaming chunks
         try:
-            prompt_tokens = sum(len(m.content) // 4 for m in self._history if isinstance(m.content, str))
             self.app.metrics_store.record(
                 self.app.server_registry.active_name,
                 MetricSample.now(

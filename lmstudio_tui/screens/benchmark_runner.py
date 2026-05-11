@@ -163,7 +163,9 @@ class BenchmarkRunner(Widget):
         self._model_entries: list[_ModelEntry] = []
         self._results: list[BenchmarkResult] = []
         self._run_count = 0
-        self._stop = False
+        self._stop = asyncio.Event()
+        # Defer results table column setup until first resize when width is known.
+        self._table_columns_setup = False
 
     # ── compose ───────────────────────────────────────────────────────────────
 
@@ -198,6 +200,9 @@ class BenchmarkRunner(Widget):
                 with Horizontal(classes="param-pair"):
                     yield Label("Slots:")
                     yield Input("4", id="inp-slots")
+                with Horizontal(classes="param-pair"):
+                    yield Label("Ctx len:")
+                    yield Input("", id="inp-ctx", placeholder="auto")
 
         # Progress bar
         with Horizontal(id="progress-panel", classes="-hidden"):
@@ -213,7 +218,7 @@ class BenchmarkRunner(Widget):
             yield Static("No results yet.", id="summary-content")
 
     def on_mount(self) -> None:
-        self._setup_results_table()
+        # Do NOT set up table columns here — self.size.width is 0 at mount time.
         self._update_layout()
         self._load_model_list()
 
@@ -223,6 +228,10 @@ class BenchmarkRunner(Widget):
 
     def on_resize(self) -> None:
         self._update_layout()
+        # Set up results table columns on first resize when width is known.
+        if not self._table_columns_setup:
+            self._table_columns_setup = True
+            self._setup_results_table()
 
     def _update_layout(self) -> None:
         w = self.size.width
@@ -240,6 +249,11 @@ class BenchmarkRunner(Widget):
 
     def _setup_results_table(self) -> None:
         table = self.query_one("#results-table", DataTable)
+        # Guard: if columns already exist, clear rows only (not columns).
+        # Duplicate column setup causes misalignment in _add_row.
+        if table.columns:
+            table.clear()
+            return
         w = self.size.width
         if w < 60:
             table.add_columns("#", "Model", "Mode", "TPS", "TTFT", "Load ms")
@@ -289,7 +303,7 @@ class BenchmarkRunner(Widget):
                 if not self.running:
                     self._start_benchmark()
             case "btn-stop":
-                self._stop = True
+                self._stop.set()
                 self.running = False
             case "btn-export":
                 self._export_results()
@@ -326,6 +340,14 @@ class BenchmarkRunner(Widget):
             except ValueError:
                 return default
 
+        def _int_opt(wid: str) -> int | None:
+            """Parse an optional integer field; returns None if blank."""
+            try:
+                val = self.query_one(f"#{wid}", Input).value.strip()
+                return int(val) if val else None
+            except ValueError:
+                return None
+
         selected_models = list(self.query_one("#model-list", SelectionList).selected)
         modes = []
         if self.query_one("#chk-throughput", Checkbox).value:
@@ -343,6 +365,7 @@ class BenchmarkRunner(Widget):
             "temperature": _flt("inp-temp", 0.0),
             "max_tokens": _int("inp-maxtok", 256),
             "parallel_slots": _int("inp-slots", 4),
+            "context_length": _int_opt("inp-ctx"),
         }
 
     def _start_benchmark(self) -> None:
@@ -358,9 +381,9 @@ class BenchmarkRunner(Widget):
             self.notify("No server connected", severity="error")
             return
 
-        self._stop = False
+        self._stop.clear()
         self._run_count = 0
-        self._results = []
+        self._results = []  # clear previous run results to prevent accumulation
         self.query_one("#results-table", DataTable).clear()
         self.query_one("#summary-content", Static).update("Running…")
         self._run_benchmark(cfg)
@@ -400,7 +423,7 @@ class BenchmarkRunner(Widget):
 
         # ── Step 2: For each selected model ──────────────────────────────
         for model_id in selected_ids:
-            if self._stop:
+            if self._stop.is_set():
                 break
 
             model_results[model_id] = []
@@ -438,7 +461,7 @@ class BenchmarkRunner(Widget):
 
             # ── Run each selected mode ────────────────────────────────────
             for mode in modes:
-                if self._stop:
+                if self._stop.is_set():
                     break
 
                 samples: list[CompletionMetrics] = []
@@ -459,7 +482,7 @@ class BenchmarkRunner(Widget):
 
                 run_num = 0
                 async for event in engine.run(spec):
-                    if self._stop:
+                    if self._stop.is_set():
                         break
                     if event["type"] == "sample":
                         run_num = event["run"]
@@ -507,7 +530,7 @@ class BenchmarkRunner(Widget):
 
         self.running = False
         self._set_progress("", 0)
-        if not self._stop:
+        if not self._stop.is_set():
             self.notify("Benchmark complete", severity="information")
 
     # ── helpers ───────────────────────────────────────────────────────────────
@@ -545,7 +568,8 @@ class BenchmarkRunner(Widget):
                 format_ms(ttft_ms),
                 _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
             )
-        else:
+        elif col_count == 9:
+            # Wide table: #, Model, Mode, TPS, TTFT, TPOT, Prompt/Out, Tool✓, Load ms
             tool_str = (
                 "✓" if tool_correct is True
                 else "✗" if tool_correct is False
@@ -560,6 +584,16 @@ class BenchmarkRunner(Widget):
                 _fmt(tpot_ms, 0, "ms") if tpot_ms is not None else "—",
                 f"{prompt_tokens}/{completion_tokens}" if prompt_tokens or completion_tokens else "—",
                 tool_str,
+                _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
+            )
+        else:
+            # Unexpected column count — log and fall back to 6-column format.
+            table.add_row(
+                str(self._run_count),
+                model_id[:22],
+                mode[:4],
+                format_tps(tps),
+                format_ms(ttft_ms),
                 _fmt(load_ms, 0, "ms") if load_ms is not None else "—",
             )
 

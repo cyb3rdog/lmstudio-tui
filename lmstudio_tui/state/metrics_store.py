@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import heapq
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -67,10 +68,24 @@ class MetricsStore:
         return samples[-1] if samples else None
 
     def all_recent(self, server: str, limit: int = 50) -> list[MetricSample]:
-        """All samples across all models for a server, newest-first."""
-        all_samples: list[MetricSample] = []
+        """Return the newest `limit` samples across all models for a server.
+
+        Iterates each per-model deque once; uses heapq.nlargest for O(n log k)
+        time where k = limit and n = total samples (bounded by WINDOW per model).
+        """
+        candidates: list[MetricSample] = []
         for (srv, _), dq in self._data.items():
             if srv == server:
-                all_samples.extend(dq)
-        all_samples.sort(key=lambda s: s.timestamp, reverse=True)
-        return all_samples[:limit]
+                candidates.extend(dq)
+        # heapq.nlargest returns the k largest items; negate timestamp for newest-first.
+        if len(candidates) <= limit:
+            candidates.reverse()
+            return candidates
+        return heapq.nlargest(limit, candidates, key=lambda s: s.timestamp)
+
+    def clear_server(self, server: str) -> None:
+        """Remove all metric keys for a given server.
+
+        Call this when disconnecting so stale keys don't accumulate in memory.
+        """
+        self._data = {k: v for k, v in self._data.items() if k[0] != server}

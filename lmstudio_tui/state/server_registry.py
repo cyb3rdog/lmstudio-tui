@@ -72,8 +72,8 @@ class ServerRegistry:
 
     def remove_server(self, name: str) -> None:
         self._connections.pop(name, None)
-        if self._active == name and self._connections:
-            self._active = next(iter(self._connections))
+        if self._active == name:
+            self._active = next(iter(self._connections)) if self._connections else ""
 
     async def connect(self, name: str) -> None:
         conn = self._connections.get(name)
@@ -131,8 +131,28 @@ class ServerRegistry:
             await self.connect(name)
 
     async def disconnect_all(self) -> None:
+        # Snapshot server names before closing (needed for metrics cleanup below).
+        server_names = list(self._connections.keys())
         for conn in self._connections.values():
             if conn.client:
                 await conn.client.close()
                 conn.client = None
                 conn.state = ConnectionState.DISCONNECTED
+        # Evict stale metrics for all servers on disconnect.
+        # If an app reference was injected via attach_app(), clear metrics here.
+        # Safe to call even if app or metrics_store is None — MetricsStore.clear_server()
+        # handles empty state gracefully.
+        app = getattr(self, "app", None)
+        if app is not None:
+            store = getattr(app, "metrics_store", None)
+            if store is not None:
+                for name in server_names:
+                    store.clear_server(name)
+
+    def attach_app(self, app: App) -> None:
+        """Inject the parent App reference for cross-cutting shutdown cleanup.
+
+        Called by App.__init__() after ServerRegistry is constructed.
+        Required for disconnect_all() to evict stale metrics on shutdown.
+        """
+        self.app = app
