@@ -21,13 +21,6 @@ class ChartRow:
 class ComparisonChart(Widget):
     """Horizontal ASCII bar chart comparing benchmark results across models."""
 
-    DEFAULT_CSS = """
-    ComparisonChart {
-        height: auto;
-        padding: 0 1;
-    }
-    """
-
     rows: reactive[list[ChartRow]] = reactive(list)
 
     BAR_WIDTH = 36

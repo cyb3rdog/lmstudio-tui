@@ -17,83 +17,6 @@ from ..state.metrics_store import MetricSample
 class ChatScreen(Widget):
     """Interactive chat screen with streaming responses."""
 
-    DEFAULT_CSS = """
-    ChatScreen {
-        width: 1fr;
-        height: 1fr;
-    }
-    ChatScreen #toolbar {
-        height: auto;
-        min-height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-    }
-    ChatScreen #toolbar-model-row {
-        height: 3;
-        width: 1fr;
-    }
-    ChatScreen #toolbar-model-row Label {
-        height: 1;
-        margin: 1 1 0 0;
-        width: auto;
-    }
-    ChatScreen #model-select { width: 1fr; }
-    ChatScreen #toolbar-btns-row {
-        height: 3;
-        width: auto;
-    }
-    ChatScreen #btn-clear { margin: 0 1; width: auto; }
-    ChatScreen #btn-stop  { margin: 0 0; width: auto; }
-    ChatScreen #chat-log {
-        height: 1fr;
-        padding: 0 1;
-    }
-    ChatScreen #streaming-row {
-        height: auto;
-        min-height: 1;
-        max-height: 4;
-        padding: 0 1 0 1;
-        background: $surface-darken-2;
-        border-top: dashed $primary-darken-3;
-    }
-    ChatScreen #streaming-row.-hidden { display: none; }
-    ChatScreen #streaming-label {
-        width: 1fr;
-        color: $text-muted;
-    }
-    ChatScreen #input-row {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-top: solid $primary-darken-3;
-    }
-    ChatScreen #chat-input { width: 1fr; }
-    ChatScreen #btn-send   { width: 8; margin: 0 0 0 1; }
-    ChatScreen #empty-state {
-        height: 1fr;
-        align: center middle;
-        color: $text-muted;
-        text-style: italic;
-    }
-    ChatScreen #empty-state.-hidden { display: none; }
-
-    /* ── Narrow: toolbar stacks into 2 rows ─────────────────────────────── */
-    ChatScreen #toolbar.stacked {
-        layout: vertical;
-        height: auto;
-    }
-    ChatScreen #toolbar.stacked #toolbar-model-row {
-        width: 1fr;
-    }
-    ChatScreen #toolbar.stacked #toolbar-btns-row {
-        width: 1fr;
-        height: 3;
-    }
-    ChatScreen #toolbar.stacked #btn-clear { width: 1fr; }
-    ChatScreen #toolbar.stacked #btn-stop  { width: 1fr; }
-    """
-
     BINDINGS = [
         ("ctrl+l", "clear_chat", "Clear"),
     ]
@@ -121,7 +44,8 @@ class ChatScreen(Widget):
             "[dim]No models loaded — go to Models screen to load one.[/dim]",
             id="empty-state",
         )
-        yield RichLog(id="chat-log", markup=True, highlight=False, wrap=True, max_lines=500)
+        with Horizontal(id="chat-log-container"):
+            yield RichLog(id="chat-log", markup=True, highlight=False, wrap=True, max_lines=500)
         with Horizontal(id="streaming-row", classes="-hidden"):
             yield Static("", id="streaming-label")
         with Horizontal(id="input-row"):

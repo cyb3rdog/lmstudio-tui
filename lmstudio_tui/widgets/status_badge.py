@@ -18,18 +18,6 @@ _ICONS = {
 class StatusBadge(Widget):
     """Small colored indicator showing a server connection state."""
 
-    DEFAULT_CSS = """
-    StatusBadge {
-        width: auto;
-        height: 1;
-    }
-    StatusBadge Label { width: auto; }
-    .status-connected    { color: $success; }
-    .status-connecting   { color: $warning; }
-    .status-disconnected { color: $text-muted; }
-    .status-error        { color: $error; }
-    """
-
     state: reactive[ConnectionState] = reactive(ConnectionState.DISCONNECTED)
 
     def compose(self):

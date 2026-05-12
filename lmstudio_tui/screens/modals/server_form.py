@@ -9,22 +9,6 @@ from ...config.models import ServerConfig
 
 
 class ServerFormModal(ModalScreen[ServerConfig | None]):
-    DEFAULT_CSS = """
-    ServerFormModal > Vertical {
-        background: $surface;
-        border: thick $primary;
-        width: 90%;
-        max-width: 60;
-        height: auto;
-        padding: 1 2;
-        align: center middle;
-    }
-    ServerFormModal Label { margin-top: 1; }
-    ServerFormModal Input { margin-bottom: 1; }
-    ServerFormModal Horizontal { height: auto; align: center middle; margin-top: 1; }
-    ServerFormModal Button { margin: 0 1; }
-    """
-
     def __init__(self, existing: ServerConfig | None = None) -> None:
         super().__init__()
         self._existing = existing

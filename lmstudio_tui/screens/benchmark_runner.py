@@ -49,114 +49,6 @@ class BenchmarkRunner(Widget):
       4. Per-sample rows appear in real time; summary updates per model.
     """
 
-    DEFAULT_CSS = """
-    BenchmarkRunner {
-        width: 1fr;
-        height: 1fr;
-        layout: vertical;
-    }
-
-    /* ── Config panel ────────────────────────────────────────────── */
-    BenchmarkRunner #config-panel {
-        height: auto;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-        padding: 0 1;
-    }
-    BenchmarkRunner #model-list {
-        height: 6;
-        max-height: 10;
-        border: solid $primary-darken-3;
-    }
-    BenchmarkRunner #model-actions {
-        height: auto;
-    }
-    BenchmarkRunner #model-actions Button {
-        width: auto;
-        margin: 0 1 0 0;
-    }
-    BenchmarkRunner #mode-row {
-        height: auto;
-    }
-    BenchmarkRunner #mode-row Checkbox {
-        margin: 0 1 0 0;
-        width: auto;
-    }
-    BenchmarkRunner #params-row {
-        height: auto;
-    }
-    BenchmarkRunner #params-row Label {
-        width: auto;
-        margin: 0 1 0 0;
-    }
-    BenchmarkRunner #params-row Input {
-        width: 6;
-    }
-    BenchmarkRunner #btn-row {
-        height: auto;
-    }
-    BenchmarkRunner #btn-row Button {
-        margin: 0 1 0 0;
-        width: auto;
-    }
-
-    /* ── Narrow: params stack into multiple rows ─────────────────────── */
-    BenchmarkRunner #params-row.stacked {
-        layout: vertical;
-        height: auto;
-    }
-    BenchmarkRunner #params-row.stacked .param-pair {
-        height: 3;
-    }
-    BenchmarkRunner #params-row.stacked .param-pair Label {
-        width: 12;
-        height: 3;
-        content-align: right middle;
-    }
-    BenchmarkRunner #params-row.stacked .param-pair Input {
-        width: 1fr;
-    }
-
-    /* ── Narrow: model-actions buttons stack ────────────────────────── */
-    BenchmarkRunner #model-actions.stacked Button {
-        width: 1fr;
-        margin: 0 0 0 0;
-    }
-
-    /* ── Progress ────────────────────────────────────────────────── */
-    BenchmarkRunner #progress-panel {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-        align: left middle;
-    }
-    BenchmarkRunner #progress-panel.-hidden { display: none; }
-    BenchmarkRunner #prog-bar { width: 1fr; }
-    BenchmarkRunner #prog-label { width: auto; margin-right: 1; }
-
-    /* ── Summary ─────────────────────────────────────────────────── */
-    BenchmarkRunner #summary-panel {
-        height: auto;
-        max-height: 8;
-        border-bottom: solid $primary-darken-3;
-        padding: 0 1;
-        background: $surface-darken-1;
-    }
-    BenchmarkRunner #summary-title {
-        color: $primary;
-        text-style: bold;
-        height: 1;
-    }
-    BenchmarkRunner #summary-content {
-        height: auto;
-        color: $text-muted;
-    }
-
-    /* ── Results ─────────────────────────────────────────────────── */
-    BenchmarkRunner #results-table { height: 1fr; }
-    """
-
     running: reactive[bool] = reactive(False)
 
     def __init__(self, **kwargs) -> None:
@@ -181,10 +73,10 @@ class BenchmarkRunner(Widget):
                 yield Button("■ Stop",     id="btn-stop",           variant="error")
                 yield Button("⬇ Export",   id="btn-export",         variant="default")
             with Horizontal(id="mode-row"):
-                yield Checkbox("Throughput",  id="chk-throughput", value=True)
-                yield Checkbox("Tool Calling", id="chk-tool",      value=False)
-                yield Checkbox("Parallel",    id="chk-parallel",   value=False)
-                yield Button("Full (all)", id="btn-full-mode", variant="default")
+                yield Checkbox("Throughput",  id="chk-throughput", value=True, compact=True)
+                yield Checkbox("Tool Calling", id="chk-tool",      value=True, compact=True)
+                yield Checkbox("Parallel",    id="chk-parallel",   value=False, compact=True)
+                yield Button("Full (all)", id="btn-full-mode", variant="default", compact=True)
             with Horizontal(id="params-row"):
                 with Horizontal(classes="param-pair"):
                     yield Label("Samples:")

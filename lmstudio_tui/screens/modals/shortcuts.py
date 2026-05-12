@@ -9,23 +9,6 @@ from textual.widgets import Button, Label, Static
 class ShortcutsModal(ModalScreen[None]):
     """Keyboard shortcuts reference overlay."""
 
-    DEFAULT_CSS = """
-    ShortcutsModal > Vertical {
-        background: $surface;
-        border: thick $primary;
-        width: 90%;
-        max-width: 58;
-        height: auto;
-        max-height: 90%;
-        padding: 1 2;
-        align: center middle;
-    }
-    ShortcutsModal Label { margin-bottom: 1; }
-    ShortcutsModal .shortcuts-body { margin-bottom: 1; }
-    ShortcutsModal Horizontal { height: auto; align: center middle; margin-top: 1; }
-    ShortcutsModal Button { margin: 0 1; }
-    """
-
     BINDINGS = [
         ("escape", "dismiss_modal", "Close"),
         ("?", "dismiss_modal", "Close"),

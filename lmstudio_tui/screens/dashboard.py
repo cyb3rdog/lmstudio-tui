@@ -21,57 +21,6 @@ class Dashboard(Widget):
     class NavigateToModels(Message):
         """Emitted when user clicks '→ Manage Models' in the unloaded panel."""
 
-    DEFAULT_CSS = """
-    Dashboard {
-        width: 1fr;
-        height: 1fr;
-    }
-    Dashboard #server-bar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-    }
-    Dashboard #models-scroll {
-        height: 1fr;
-    }
-    Dashboard #empty-placeholder {
-        height: 1fr;
-        align: center middle;
-        color: $text-muted;
-        text-style: italic;
-    }
-    Dashboard #unloaded-panel {
-        height: auto;
-        min-height: 3;
-        max-height: 6;
-        padding: 0 1 0 1;
-        background: $surface-darken-2;
-        border-top: solid $primary-darken-3;
-    }
-    Dashboard #unloaded-panel.-hidden { display: none; }
-    Dashboard #unloaded-row {
-        height: 3;
-        align: left middle;
-    }
-    Dashboard #unloaded-title {
-        color: $text-muted;
-        width: 1fr;
-        height: 3;
-        content-align: left middle;
-    }
-    Dashboard #btn-manage-models {
-        width: auto;
-        height: 1;
-        min-width: 14;
-    }
-    Dashboard #unloaded-names {
-        height: auto;
-        color: $text-muted;
-        padding: 0 0 1 0;
-    }
-    """
-
     def compose(self) -> ComposeResult:
         yield Static("  Connecting…", id="server-bar")
         with ScrollableContainer(id="models-scroll"):

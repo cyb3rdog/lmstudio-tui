@@ -11,22 +11,6 @@ from ...config.models import ServerConfig
 class OnboardingModal(ModalScreen[ServerConfig | None]):
     """First-run welcome dialog. Collects endpoint + optional API key."""
 
-    DEFAULT_CSS = """
-    OnboardingModal > Vertical {
-        background: $surface;
-        border: thick $primary;
-        width: 90%;
-        max-width: 64;
-        height: auto;
-        padding: 2 3;
-        align: center middle;
-    }
-    OnboardingModal Label { margin-bottom: 1; }
-    OnboardingModal Input { margin-bottom: 1; }
-    OnboardingModal Horizontal { height: auto; align: center middle; margin-top: 1; }
-    OnboardingModal Button { margin: 0 1; }
-    """
-
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Label("[bold]Welcome to LM Studio TUI[/bold]")

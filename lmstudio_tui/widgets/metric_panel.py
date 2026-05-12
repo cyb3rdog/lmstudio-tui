@@ -11,18 +11,6 @@ from ..utils.formatting import format_ms, format_tps
 class MetricPanel(Widget):
     """TPS sparkline + TTFT sparkline + VRAM progress bar for Live Monitor."""
 
-    DEFAULT_CSS = """
-    MetricPanel {
-        border: round $primary-darken-2;
-        padding: 0 1;
-        margin-bottom: 1;
-        height: auto;
-    }
-    MetricPanel .mp-title { text-style: bold; }
-    MetricPanel Sparkline { height: 3; width: 1fr; }
-    MetricPanel ProgressBar { width: 1fr; }
-    """
-
     tps_data: reactive[list[float]] = reactive(list)
     ttft_data: reactive[list[float]] = reactive(list)
     vram_pct: reactive[float] = reactive(0.0)

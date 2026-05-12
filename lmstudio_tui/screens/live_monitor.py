@@ -15,26 +15,6 @@ from ..widgets.metric_panel import MetricPanel
 
 
 class LiveMonitor(Widget):
-    DEFAULT_CSS = """
-    LiveMonitor {
-        width: 1fr;
-        height: 1fr;
-    }
-    LiveMonitor #toolbar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-    }
-    LiveMonitor #panels-scroll { height: 1fr; }
-    LiveMonitor #recent-table { height: 8; min-height: 4; }
-    LiveMonitor #recent-label {
-        padding: 0 1;
-        color: $text-muted;
-        height: 1;
-    }
-    """
-
     BINDINGS = [("p", "toggle_pause", "Pause/Resume")]
 
     paused: reactive[bool] = reactive(False)

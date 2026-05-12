@@ -13,51 +13,6 @@ from .modals.server_form import ServerFormModal
 
 
 class Settings(Widget):
-    DEFAULT_CSS = """
-    Settings {
-        width: 1fr;
-        height: 1fr;
-    }
-    Settings #layout {
-        height: 1fr;
-    }
-    Settings #server-panel {
-        width: 36;
-        min-width: 28;
-        height: 1fr;
-        border-right: solid $primary-darken-3;
-        padding: 0 1;
-    }
-    Settings #prefs-panel {
-        width: 1fr;
-        padding: 0 1;
-    }
-    Settings #layout.stacked {
-        layout: vertical;
-    }
-    Settings #layout.stacked #server-panel {
-        width: 1fr;
-        height: auto;
-        max-height: 10;
-        border-right: none;
-        border-bottom: solid $primary-darken-3;
-    }
-    Settings #layout.stacked #prefs-panel {
-        width: 1fr;
-    }
-    Settings .section-title {
-        text-style: bold;
-        height: 1;
-        color: $primary;
-    }
-    Settings ListView { height: 1fr; }
-    Settings Button { margin: 0; width: 100%; }
-    Settings #btn-row { height: auto; }
-    Settings #btn-row Button { margin: 0 1 0 0; width: auto; }
-    Settings .pref-label { height: 1; color: $text-muted; }
-    Settings Input { margin: 0; }
-    """
-
     # Debounce resize-triggered server list reloads.
     _resize_debounce: bool = False
 

@@ -18,25 +18,9 @@ from .modals.model_load import ModelLoadModal
 class ModelManager(Widget):
     """Manage loaded and unloaded models on the server: load, unload, refresh."""
 
-    DEFAULT_CSS = """
-    ModelManager {
-        width: 1fr;
-        height: 1fr;
-    }
-    ModelManager DataTable { height: 1fr; }
-    ModelManager #toolbar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-top: solid $primary-darken-3;
-    }
-    ModelManager Button { margin: 0 1 0 0; }
-    """
-
     BINDINGS = [
         ("l", "load_model",   "Load"),
         ("u", "unload_model", "Unload"),
-        ("d", "goto_downloads", "Downloads"),
         ("r", "refresh",      "Refresh"),
     ]
 
@@ -49,7 +33,6 @@ class ModelManager(Widget):
         with Horizontal(id="toolbar"):
             yield Button("Load [L]",   id="btn-load",    variant="primary")
             yield Button("Unload [U]", id="btn-unload",  variant="default")
-            yield Button("Downloads [D]", id="btn-downloads", variant="default")
             yield Button("Refresh [R]", id="btn-refresh", variant="default")
 
     def on_mount(self) -> None:
@@ -57,21 +40,10 @@ class ModelManager(Widget):
         self.action_refresh()
 
     def _setup_columns(self, table: DataTable) -> None:
-        w = self.size.width
-        if w < 50:
-            table.add_column("Model", width=22)
-            table.add_column("St",    width=2)
-        elif w < 72:
-            table.add_column("Model", width=20)
-            table.add_column("St",    width=2)
-            table.add_column("Quant", width=8)
-            table.add_column("Ctx",   width=5)
-        else:
-            table.add_column("Model",  width=36)
-            table.add_column("Status", width=8)
-            table.add_column("Quant",  width=10)
-            table.add_column("Ctx",    width=6)
-            table.add_column("VRAM",   width=6)
+        table.add_column("St",    width=2)
+        table.add_column("Model", width=36)
+        table.add_column("Quant", width=8)
+        table.add_column("Ctx",   width=5)
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.data_table.id == "models-table" and event.row_key:
@@ -85,14 +57,9 @@ class ModelManager(Widget):
         match event.button.id:
             case "btn-load":    self.action_load_model()
             case "btn-unload":  self.action_unload_model()
-            case "btn-downloads": self.action_goto_downloads()
             case "btn-refresh": self.action_refresh()
 
     # ── actions ───────────────────────────────────────────────────────────────
-
-    def action_goto_downloads(self) -> None:
-        """Navigate to the Downloads screen to browse and download models."""
-        self.app.action_goto("downloads")
 
     @work
     async def action_refresh(self) -> None:
@@ -114,12 +81,7 @@ class ModelManager(Widget):
                 status = "●" if m.is_loaded else "○"
                 quant  = m.quantization or "—"
                 ctx    = format_ctx(m.max_context_length or m.context_length)
-                if col_count == 2:
-                    table.add_row(m.id[:22], status, key=m.id)
-                elif col_count == 4:
-                    table.add_row(m.id[:20], status, quant[:8], ctx, key=m.id)
-                else:
-                    table.add_row(m.id[:36], status, quant[:10], ctx, "—", key=m.id)
+                table.add_row(status, m.id[:36], quant[:8], ctx, key=m.id)
             table.refresh()
         except Exception as e:
             self.notify(str(e), severity="error")

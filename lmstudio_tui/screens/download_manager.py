@@ -23,53 +23,6 @@ class DownloadManager(Widget):
     loading and unloading already-downloaded models.
     """
 
-    DEFAULT_CSS = """
-    DownloadManager {
-        width: 1fr;
-        height: 1fr;
-        layout: vertical;
-    }
-    DownloadManager #search-bar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-bottom: solid $primary-darken-3;
-    }
-    DownloadManager #search-bar Input { width: 1fr; }
-    DownloadManager #search-bar Button { width: 10; margin-left: 1; }
-    DownloadManager #status-bar {
-        height: 1;
-        padding: 0 1;
-        color: $text-muted;
-        background: $surface-darken-2;
-    }
-    DownloadManager #results-table { height: 1fr; }
-    DownloadManager #action-bar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-1;
-        border-top: solid $primary-darken-3;
-    }
-    DownloadManager #selected-label {
-        width: 1fr;
-        height: 3;
-        content-align: left middle;
-        color: $text-muted;
-    }
-    DownloadManager #btn-download { width: auto; }
-    DownloadManager #dl-bar {
-        height: 3;
-        padding: 0 1;
-        background: $surface-darken-2;
-        border-top: solid $primary-darken-3;
-        align: left middle;
-    }
-    DownloadManager #dl-bar.-hidden { display: none; }
-    DownloadManager #dl-label { width: auto; margin-right: 1; }
-    DownloadManager #dl-progress { width: 1fr; }
-    DownloadManager #btn-dl-cancel { width: auto; margin-left: 1; }
-    """
-
     class DownloadRequested(Message):
         """Emitted when the user confirms a download (for app-level routing)."""
         def __init__(self, model_id: str) -> None:

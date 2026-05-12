@@ -10,21 +10,6 @@ from ...api.models import LoadRequest
 
 
 class ModelLoadModal(ModalScreen[LoadRequest | None]):
-    DEFAULT_CSS = """
-    ModelLoadModal > Vertical {
-        background: $surface;
-        border: thick $primary;
-        width: 90%;
-        max-width: 60;
-        height: auto;
-        padding: 1 2;
-        align: center middle;
-    }
-    ModelLoadModal Label { margin-top: 1; }
-    ModelLoadModal Horizontal { height: auto; align: center middle; margin-top: 1; }
-    ModelLoadModal Button { margin: 0 1; }
-    """
-
     def __init__(
         self,
         model_id: str,

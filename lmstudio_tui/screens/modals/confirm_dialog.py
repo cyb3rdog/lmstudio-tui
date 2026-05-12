@@ -7,20 +7,6 @@ from textual.widgets import Button, Label
 
 
 class ConfirmModal(ModalScreen[bool]):
-    DEFAULT_CSS = """
-    ConfirmModal > Vertical {
-        background: $surface;
-        border: thick $primary;
-        width: 50;
-        height: auto;
-        padding: 1 2;
-        align: center middle;
-    }
-    ConfirmModal Label { margin-bottom: 1; }
-    ConfirmModal Horizontal { height: auto; align: center middle; }
-    ConfirmModal Button { margin: 0 1; }
-    """
-
     def __init__(self, message: str, title: str = "Confirm") -> None:
         super().__init__()
         self._message = message

@@ -18,38 +18,6 @@ def _safe_id(raw: str) -> str:
 class ModelCard(Widget):
     """Rich card showing details + live metrics for a single loaded model."""
 
-    DEFAULT_CSS = """
-    ModelCard {
-        border: round $primary-darken-2;
-        padding: 0 1;
-        margin-bottom: 1;
-        height: auto;
-    }
-    ModelCard .card-title {
-        text-style: bold;
-        color: $text;
-        overflow: hidden;
-    }
-    ModelCard .card-meta {
-        color: $text-muted;
-        overflow: hidden;
-    }
-    ModelCard .card-params {
-        color: $text-muted;
-        overflow: hidden;
-    }
-    ModelCard Sparkline {
-        height: 3;
-        width: 1fr;
-    }
-    ModelCard ProgressBar {
-        width: 1fr;
-    }
-    ModelCard #vram-row {
-        height: 1;
-    }
-    """
-
     def __init__(self, model: ModelInfo, **kwargs) -> None:
         super().__init__(**kwargs)
         self._model = model
