@@ -101,7 +101,7 @@ class Settings(Widget):
 
     def _load_prefs(self) -> None:
         self.query_one("#inp-poll", Input).value       = str(self.app.config.ui.poll_interval_s)
-        self.query_one("#inp-timeout", Input).value    = str(self.app.active_server_config.timeout_s)
+        self.query_one("#inp-timeout", Input).value    = str(self.app.config.active_server_config.timeout_s)
         self.query_one("#inp-window", Input).value      = str(self.app.config.metrics_window)
         self.query_one("#inp-export-dir", Input).value  = self.app.config.benchmark.export_dir
 
@@ -230,7 +230,7 @@ class Settings(Widget):
         elif timeout > 3600.0:
             timeout = 3600.0
         # Apply to active server config (in-memory + config file).
-        self.app.active_server_config.timeout_s = timeout
+        self.app.config.active_server_config.timeout_s = timeout
 
         # ── Metrics window ────────────────────────────────────────────────
         try:
