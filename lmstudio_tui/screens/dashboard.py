@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.containers import ScrollableContainer, Vertical
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Button, Label, Static
@@ -85,11 +85,7 @@ class Dashboard(Widget):
         conn = self.app.server_registry.active_connection
 
         if not conn or conn.state != ConnectionState.CONNECTED:
-            for _ in range(20):
-                await asyncio.sleep(0.25)
-                conn = self.app.server_registry.active_connection
-                if conn and conn.state == ConnectionState.CONNECTED:
-                    break
+            await self.app.server_registry.wait_for_client()
 
         if not conn:
             return

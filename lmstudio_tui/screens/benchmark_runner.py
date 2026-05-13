@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.containers import ScrollableContainer, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import (
@@ -161,15 +161,7 @@ class BenchmarkRunner(Widget):
 
     @work(exclusive=True)
     async def _load_model_list(self) -> None:
-        client = self.app.server_registry.active_client
-        if not client:
-            for _ in range(20):
-                await asyncio.sleep(0.25)
-                client = self.app.server_registry.active_client
-                if client:
-                    break
-        if not client:
-            return
+        client = await self.app.server_registry.wait_for_client()
 
         try:
             models = await client.list_models()

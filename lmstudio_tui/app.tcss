@@ -457,7 +457,6 @@ BenchmarkRunner {
     width: 1fr;
     height: 1fr;
     min-height: 0;
-    layout: vertical;
 }
 
 BenchmarkRunner #config-panel {
@@ -569,7 +568,7 @@ BenchmarkRunner #summary-content {
     color: $text-muted;
 }
 
-BenchmarkRunner #results-table { height: 1fr; }
+BenchmarkRunner #results-table { height: 1fr; min-height: 0; }
 
 /* ── DownloadManager ──────────────────────────────────────────────────────── */
 

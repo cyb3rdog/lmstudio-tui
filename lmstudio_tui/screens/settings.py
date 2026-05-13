@@ -157,6 +157,7 @@ class Settings(Widget):
                 if s.name == name:
                     self.app.config.servers[i] = result
                     break
+            self.app.server_registry.add_server(result)
             save_config(self.app.config)
             self._load_server_list()
 

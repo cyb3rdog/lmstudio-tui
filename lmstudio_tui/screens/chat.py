@@ -5,7 +5,7 @@ import time as _time
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Button, Input, Label, RichLog, Select, Static
 from textual import work
@@ -98,20 +98,7 @@ class ChatScreen(Widget):
 
     @work(exclusive=True)
     async def _populate_models(self) -> None:
-        client = self.app.server_registry.active_client
-        if not client:
-            for _ in range(20):
-                await asyncio.sleep(0.25)
-                client = self.app.server_registry.active_client
-                if client:
-                    break
-        if not client:
-            return
-        try:
-            models = await client.list_models()
-            loaded = [m for m in models if m.is_loaded]
-        except Exception:
-            return
+        client = await self.app.server_registry.wait_for_client()
 
         sel = self.query_one("#model-select", Select)
         empty = self.query_one("#empty-state", Static)

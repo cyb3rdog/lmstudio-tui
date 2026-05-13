@@ -94,7 +94,8 @@ class LMStudioApp(App[None]):
             self.config.servers = [server_cfg]
             self.config.active_server = server_cfg.name
             save_config(self.config)
-            self.server_registry = ServerRegistry(self.config.servers)
+            self.server_registry = ServerRegistry(self.config.servers, active_server=server_cfg.name)
+            self.server_registry.attach_app(self)
         else:
             self.notify(
                 "No server configured. Add one in Settings.",

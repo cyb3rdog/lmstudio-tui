@@ -4,6 +4,8 @@ import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 
+from textual.app import App
+
 from ..api import exceptions as exc
 from ..api.client import LMStudioClient
 from ..api.models import ModelInfo
@@ -69,6 +71,22 @@ class ServerRegistry:
 
     def add_server(self, config: ServerConfig) -> None:
         self._connections[config.name] = ServerConnection(config=config)
+
+    async def wait_for_client(self, timeout_s: float = 5.0) -> LMStudioClient | None:
+        """Poll active_client until connected or timeout.
+
+        Replaces copy-pasted busy-wait loops across screens.
+        Returns the client if available, or None on timeout.
+        """
+        deadline = asyncio.get_running_loop().time() + timeout_s
+        while True:
+            client = self.active_client
+            if client is not None:
+                return client
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                return None
+            await asyncio.sleep(min(0.25, remaining))
 
     def remove_server(self, name: str) -> None:
         self._connections.pop(name, None)
