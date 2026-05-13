@@ -11,6 +11,7 @@ from textual.widgets import Button, Input, Label, RichLog, Select, Static
 from textual import work
 
 from ..api.models import ChatCompletionRequest, ChatMessage
+from ..constants import NARROW_SCREEN_THRESHOLD
 from ..state.metrics_store import MetricSample
 
 
@@ -84,7 +85,7 @@ class ChatScreen(Widget):
         try:
             toolbar = self.query_one("#toolbar")
             lbl = self.query_one("#lbl-model", Label)
-            if self.size.width < 60:
+            if self.size.width < NARROW_SCREEN_THRESHOLD:
                 toolbar.add_class("stacked")
                 lbl.display = False
             else:

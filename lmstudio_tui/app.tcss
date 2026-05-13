@@ -150,7 +150,7 @@ ChatScreen #toolbar.stacked #model-select {
     width: 1fr;
 }
 
-/* Settings panels stack vertically when width < 60 */
+/* Settings panels stack vertically when width < NARROW_SCREEN_THRESHOLD (65) */
 Settings #server-panel {
     min-width: 28;
 }
@@ -401,18 +401,55 @@ Settings #layout.stacked #prefs-panel {
     width: 1fr;
 }
 
-Settings ListView { 
+Settings ListView {
     height: 1fr;
     min-height: 5;
     padding: 0 1;
     border: round $primary-darken-2;
 }
 
-Settings Button { margin: 0; width: 100%; }
-Settings #btn-row { height: auto; }
-Settings #btn-row Button { margin: 0 1 0 0; width: auto; }
-Settings .pref-label { height: 1; color: $text-muted; }
-Settings Input { margin: 0; }
+/* ── Settings buttons ─────────────────────────────────────────────────────── */
+
+Settings #btn-row {
+    height: auto;
+    width: 1fr;
+}
+Settings #btn-row Button {
+    margin: 0 1 0 0;
+    width: auto;
+    min-width: 0;
+}
+Settings #set-active-row {
+    height: auto;
+    width: 1fr;
+}
+Settings #set-active-row Button {
+    margin: 0 1 0 0;
+    width: 100%;
+    min-width: 0;
+}
+Settings .pref-label {
+    height: 1;
+    color: $text-muted;
+}
+Settings Input {
+    margin: 0;
+}
+Settings #poll-section,
+Settings #timeout-section,
+Settings #window-section,
+Settings #export-section {
+    height: auto;
+    margin-bottom: 1;
+}
+Settings #save-row {
+    height: auto;
+    margin-top: 1;
+}
+Settings #save-row Button {
+    margin: 0;
+    width: 100%;
+}
 
 /* ── BenchmarkRunner ──────────────────────────────────────────────────────── */
 

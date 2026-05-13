@@ -3,6 +3,7 @@ DEFAULT_CONFIG_TOML = """\
 name = "default"
 endpoint = "http://localhost:1234"
 api_key = ""
+timeout_s = 900
 
 [benchmark]
 default_prompt_set = "mixed"
@@ -13,4 +14,6 @@ export_dir = "~/.lmstudio-tui/benchmarks"
 [ui]
 poll_interval_s = 3.0
 theme = "textual-dark"
+
+[model_prefs]
 """

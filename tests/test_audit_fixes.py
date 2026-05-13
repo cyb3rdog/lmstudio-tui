@@ -64,7 +64,7 @@ class TestMetricsStoreRecord:
         store = MetricsStore()
         for _ in range(200):
             store.record("srv1", MetricSample.now("model-a", tps=10.0, ttft_ms=50.0))
-        assert len(store.get_samples("srv1", "model-a")) == MetricsStore.WINDOW
+        assert len(store.get_samples("srv1", "model-a")) == 120  # default MetricsStore window
 
 
 # ── MetricsStore series ────────────────────────────────────────────────────────
@@ -242,9 +242,9 @@ class TestMetricsStoreEdgeCases:
 
     def test_windows_maxlen_per_model(self) -> None:
         store = MetricsStore()
-        for i in range(MetricsStore.WINDOW + 50):
+        for i in range(120 + 50):
             store.record("srv", MetricSample.now("m", tps=float(i), ttft_ms=10.0))
-        assert len(store.get_samples("srv", "m")) == MetricsStore.WINDOW
+        assert len(store.get_samples("srv", "m")) == 120  # default MetricsStore window
 
 
 # ── Config defaults ────────────────────────────────────────────────────────────

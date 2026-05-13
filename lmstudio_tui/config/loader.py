@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import logging
 import tomllib
 from pathlib import Path
 
 import tomli_w
 
+from ..constants import DEFAULT_REQUEST_TIMEOUT_S, METRICS_WINDOW, MIN_POLL_INTERVAL_S
 from .defaults import DEFAULT_CONFIG_TOML
 from .models import AppConfig, BenchmarkConfig, ModelPref, ServerConfig, UIConfig
 
 CONFIG_DIR = Path.home() / ".lmstudio-tui"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
+
+_logger = logging.getLogger("lmstudio_tui.config")
 
 
 def config_exists() -> bool:
@@ -24,9 +28,7 @@ def load_config() -> AppConfig:
         with open(CONFIG_FILE, "rb") as f:
             data = tomllib.load(f)
     except Exception:
-        # Corrupted or unreadable config — log and return defaults
-        import sys
-        print(f"[lmstudio-tui] Warning: config file unreadable, using defaults: {CONFIG_FILE}", file=sys.stderr)
+        _logger.warning("config file unreadable, using defaults: %s", CONFIG_FILE)
         return AppConfig()
 
     servers = [
@@ -34,6 +36,7 @@ def load_config() -> AppConfig:
             name=s.get("name", "default"),
             endpoint=s.get("endpoint", "http://localhost:1234"),
             api_key=s.get("api_key", ""),
+            timeout_s=s.get("timeout_s", DEFAULT_REQUEST_TIMEOUT_S),
         )
         for s in data.get("servers", [])
     ]
@@ -64,13 +67,18 @@ def load_config() -> AppConfig:
         if isinstance(v, dict)
     }
 
-    return AppConfig(
+    metrics_window = data.get("metrics_window", METRICS_WINDOW)
+
+    config = AppConfig(
         servers=servers,
         active_server=data.get("active_server", servers[0].name),
         benchmark=bench,
         ui=ui,
         model_prefs=model_prefs,
+        metrics_window=metrics_window,
     )
+    config.validate()
+    return config
 
 
 def save_config(config: AppConfig) -> None:
@@ -79,7 +87,12 @@ def save_config(config: AppConfig) -> None:
     data: dict = {
         "active_server": config.active_server,
         "servers": [
-            {"name": s.name, "endpoint": s.endpoint, "api_key": s.api_key}
+            {
+                "name": s.name,
+                "endpoint": s.endpoint,
+                "api_key": s.api_key,
+                "timeout_s": s.timeout_s,
+            }
             for s in config.servers
         ],
         "benchmark": {
@@ -93,10 +106,18 @@ def save_config(config: AppConfig) -> None:
             "theme": config.ui.theme,
         },
         "model_prefs": {
-            mid: {k: v for k, v in [("gpu_layers", p.gpu_layers), ("context_length", p.context_length)] if v is not None}
+            mid: {
+                k: v
+                for k, v in [
+                    ("gpu_layers", p.gpu_layers),
+                    ("context_length", p.context_length),
+                ]
+                if v is not None
+            }
             for mid, p in config.model_prefs.items()
             if p.gpu_layers is not None or p.context_length is not None
         },
+        "metrics_window": config.metrics_window,
     }
 
     with open(CONFIG_FILE, "wb") as f:

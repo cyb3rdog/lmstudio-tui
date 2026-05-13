@@ -27,7 +27,7 @@ class LMStudioClient:
         self._http = httpx.AsyncClient(
             base_url=config.endpoint,
             headers=config.headers(),
-            timeout=httpx.Timeout(120.0, connect=5.0),
+            timeout=httpx.Timeout(config.timeout_s, connect=5.0),
         )
 
     async def close(self) -> None:
@@ -156,7 +156,7 @@ class LMStudioClient:
 
         return min(score, 1.0)
 
-    # ── health ────────────────────────────────────────────────────────────────
+    # ── health ───────────────────────────────────────────────────────────────
 
     async def ping(self) -> float:
         """Return round-trip latency in ms, or raise ConnectionError."""
@@ -391,7 +391,7 @@ class LMStudioClient:
 
         load_resp = LoadResponse.model_validate(data)
         instance_id = load_resp.instance_id
-        # Prefer server's measurement (pure GPU/CPU load, excludes HTTP latency)
+        # Prefer server's own timing; fall back to wall-clock
         load_ms = load_resp.load_time_seconds * 1000.0 if load_resp.load_time_seconds > 0 else wall_ms
 
         chat_req = ChatCompletionRequest(

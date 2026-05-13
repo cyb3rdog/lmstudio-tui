@@ -1,125 +1,75 @@
 # LM Studio TUI - Roadmap
 
-## Current Status: ✅ Phase 1, 2, 3A, 3B, 3C, 4A & Post-Audit Fixes Complete
+## Current Status: ✅ Phase 1–5 Complete — v0.2 Preview
 
-**Post-Audit: 32 issues resolved (7 critical, 5 memory/leak, 4 race, 6 perf, 10 UX). 212 tests passing.**
+**v0.2 adds: configurable HTTP timeout, configurable metrics window, server switching UI, central threshold constant. All items completed 2026-05-13.**
 
 ---
 
-## ✅ Phase 3A: Core UX Foundation — COMPLETE
+## ✅ Phase 5B: Mobile UX Redesign — COMPLETE (v0.2)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Nav-1 | ✅ | Tab cycles sidebar ↔ content via Textual DOM order |
-| Nav-2 | ✅ | Focus rings on Button, DataTable, Select, ListView |
-| Nav-3 | ✅ | ShortcutsModal via `?` key binding |
-| Nav-4 | ✅ | Escape: focus nav; second Escape while nav focused collapses sidebar |
-| Nav-5 | ✅ | Ctrl+B toggles collapse/expand; auto-focuses content when collapsing |
-| Nav-6 | ✅ | Portrait (<70 cols): Enter on nav item auto-collapses sidebar |
-| Mobile-1 | ✅ | Sidebar auto-collapse < 70 cols; Ctrl+B / Escape toggle |
-| Mobile-2 | ✅ | Mini-header: 3-tier responsive (< 50, < 70, ≥ 70 cols); updates on resize |
-| Mobile-3 | ✅ | Number keys 1-6 work regardless of sidebar state |
-| Mobile-4 | ✅ | All toolbars stack vertically on narrow screens (< ~60 cols) |
+| UX-1 | ✅ | NARROW_SCREEN_THRESHOLD = 65 centralised in `constants.py` |
+| UX-2 | ✅ | All screens reference constant (chat.py, benchmark_runner.py, settings.py) |
+| UX-3 | ✅ | MetricsStore window configurable via Settings + config.toml |
+| UX-4 | ✅ | Benchmark runner buttons visible at all resolutions |
+| UX-5 | ✅ | Portrait/landscape auto-detection via `self.size.width < NARROW_SCREEN_THRESHOLD` |
 
 ---
 
-## ✅ Phase 3B: Interactive Chat — COMPLETE
+## ✅ Phase 6: Configurable HTTP Timeout — COMPLETE (v0.2)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Chat-1 | ✅ | `screens/chat.py` with streaming via `agentic_inference` |
-| Chat-2 | ✅ | Live token preview updates during streaming |
-| Chat-3 | ✅ | Model selector (Select widget, re-populated on show) |
-| Chat-4 | ✅ | Full conversation history sent on each request |
-| Chat-5 | ✅ | Stop button with `asyncio.Event` abort |
-| Chat-6 | ✅ | Clear via `Ctrl+L` |
-| Chat-7 | ✅ | Each turn records TPS/TTFT/tokens to MetricsStore → Live Monitor |
+| TO-1 | ✅ | `ServerConfig.timeout_s` field (default 900s, range 10–3600) |
+| TO-2 | ✅ | `LMStudioClient` uses `config.timeout_s` for httpx.AsyncClient |
+| TO-3 | ✅ | Editable per-server in Settings → Edit (ServerFormModal) |
+| TO-4 | ✅ | Editable for active server in Settings → App Preferences |
+| TO-5 | ✅ | Config.toml serialised with `timeout_s` field |
 
 ---
 
-## ✅ Phase 3C: Comprehensive Benchmarking — COMPLETE
+## ✅ Phase 7: Server Switching UI — COMPLETE (v0.2)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Bench-1 | ✅ | Load time via `load_time_seconds` from LM Studio response (authoritative) |
-| Bench-2 | ✅ | Winner detection (`detect_winners()` marks best per metric category) |
-| Bench-3 | ✅ | TPOT metric (time per output token, streaming wall-clock) |
-| Bench-4 | ✅ | Reasoning token chunk count (`reasoning_content` delta proxy) |
-| Bench-5 | ✅ | Mode checkboxes: Throughput, Tool Calling, Parallel + "Full (all)" |
-| Bench-6 | ✅ | Model SelectionList: all server models, ●/○ status, Select/Deselect All |
-| Bench-7 | ✅ | Benchmark flow: unload all → load → run modes → unload → next model |
-| Bench-8 | ✅ | JIT detection: `was_jit=True` when model was not loaded pre-benchmark |
-| Bench-9 | ✅ | Tool calling: 4 synthetic tools, 10 test cases, name + arg fuzzy scoring |
-| Bench-10 | ✅ | Parallel mode: `asyncio.Semaphore(N)` slots, aggregate TPS |
-| Bench-11 | ✅ | Export: JSON/CSV/Markdown with mode-specific tables and ★ winners |
-| Bench-12 | ✅ | Real-time per-sample rows + per-model summary panel |
+| SW-1 | ✅ | "Set Active" button in Settings below server list |
+| SW-2 | ✅ | Active server marked `★` in ListView |
+| SW-3 | ✅ | `ServerRegistry.active_name` setter wired to UI |
+| SW-4 | ✅ | All screens operate on active server |
 
 ---
 
-## ✅ Test Suite — COMPLETE (212 tests, 0 failures)
-
-| File | Tests | Coverage |
-|------|-------|---------|
-| `tests/test_api_models.py` | 12 | ModelsResponse, ModelInfo, field validators |
-| `tests/test_api_client.py` | 18 | ping, list_models, load_model, _extract_metrics |
-| `tests/test_benchmark_analysis.py` | 20 | percentile, IQR outliers, analyze, detect_winners |
-| `tests/test_agentic_benchmark.py` | 29 | Tool suite, scoring, agentic analyze |
-| `tests/test_hub_api.py` | 19 | HubModel formatting, search_hub URL params, error handling |
-| `tests/test_server_registry.py` | 18 | ServerRegistry lifecycle, add/remove, active switching |
-| `tests/test_config.py` | 13 | Config defaults, save/load roundtrip, ServerConfig |
-| `tests/test_audit_fixes.py` | 83 | MetricsStore edge cases, tool suite schema, CompletionMetrics, ChatMessage |
-
----
-
-## ✅ Phase 4A: Download Manager — COMPLETE
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| DM-1 | ✅ | `api/hub.py` — HuggingFace search (`GET /api/models?filter=gguf`) |
-| DM-2 | ✅ | `screens/download_manager.py` — HF browse, download start/poll/cancel (self-contained) |
-| DM-3 | ✅ | Default view: top GGUF models by downloads (no query required) |
-| DM-4 | ✅ | Row-key tracking prevents truncated-ID bugs on narrow terminals |
-| DM-5 | ✅ | Fallback: paste full `author/model-GGUF` ID directly into search input |
-| DM-6 | ✅ | 19 tests in `tests/test_hub_api.py` |
-
----
-
-## Phase 4B: Advanced Features (Optional)
+## Phase 8: Multi-Server Simultaneous Monitoring (Planned)
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| SSE-1 | MEDIUM | SSE log stream via `/api/v1/chat` native streaming events (stub exists in `api/sse.py`, endpoint returns 404 on current server) |
-| Multi-1 | LOW | Server switching UI (server selector widget in sidebar) |
-| Multi-2 | LOW | Multi-server simultaneous monitoring |
+| Multi-1 | MEDIUM | Server selector widget in sidebar — switch without going to Settings |
+| Multi-2 | MEDIUM | Live Monitor shows metrics from all configured servers |
+| Multi-3 | MEDIUM | Dashboard shows status bar for all servers |
+
+---
+
+## Phase 9: Advanced Benchmarking (Planned)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
 | Bench-adv-1 | LOW | Multi-turn tool benchmark (send tool result back, evaluate final answer) |
 | Bench-adv-2 | LOW | Distractor tools (measure hallucination / wrong-tool rate) |
 | Bench-adv-3 | LOW | Concurrency sweep (plot aggregate TPS vs. parallel slots 1–16) |
+| Bench-adv-4 | LOW | Context length sweep (TPS vs. context for same model) |
 
 ---
 
-## Phase 5: Download Manager — Rename (2026-05-11)
+## Phase 10: Dead Code Cleanup (Planned for v0.2)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| AR-1 | ✅ | Clean separation: ModelManager (screen 2) = load/unload only; Downloads (screen 6) = browse + download |
-| AR-2 | ✅ | Removed download logic from ModelManager (poll, cancel, _dl_* vars) |
-| AR-3 | ✅ | Download Manager (`screens/download_manager.py`) is self-contained: browse, start, poll, cancel |
-| AR-4 | ✅ | Download progress bar lives in Download Manager, not ModelManager |
-| AR-5 | ✅ | ModelManager toolbar: Load/Unload/Downloads [D]/Refresh |
-| AR-6 | ✅ | Deleted `screens/hub.py` shim — DownloadManager imported directly from `screens/download_manager.py` |
-| AR-7 | ✅ | Consistent naming: screen "Downloads", class `DownloadManager`, file `download_manager.py` |
-
----
-
-## Phase 5B: Mobile UX Redesign (Planned)
-
-| Feature | Priority | Description |
-|---------|----------|-------------|
-| UX-1 | HIGH | Revisit portrait UX flows (≤70 cols) — navigation, toolbars, table display |
-| UX-2 | MEDIUM | Revisit landscape UX flows (≥70 cols) — benchmark runner, live monitor |
-| UX-3 | HIGH | Compact mode as default UX — optimize for constrained hardware (Pi Zero 2W) |
-| UX-4 | MEDIUM | Benchmark runner buttons visible at all resolutions |
-| UX-5 | LOW | Portrait/landscape auto-detection and adaptive layout |
+| DC-1 | LOW | Remove or document `widgets/comparison_chart.py` (never imported) |
+| DC-2 | LOW | Remove or document `widgets/status_badge.py` (never imported) |
+| DC-3 | LOW | Remove or document `api/sse.py` (never imported, endpoint returns 404) |
+| DC-4 | LOW | Remove `scripts/benchmark-lmstudio.bak` backup |
 
 ---
 
@@ -127,19 +77,26 @@
 
 ### Working Features
 - ✅ Dashboard — server status bar, model cards with sparklines
-- ✅ Models — table (with Quant + Ctx columns), load/unload, Downloads screen (browse/search/download GGUF from HuggingFace), responsive toolbar
+- ✅ Models — table (with Quant + Ctx columns), load/unload, Downloads screen
 - ✅ Chat — streaming chat, model selector, history, Stop/Clear, feeds Live Monitor
-- ✅ Monitor — TPS/TTFT sparklines, recent requests table (populated by Chat + Benchmark), DOM rebuilds throttled to new data only
-- ✅ Benchmark — model SelectionList, mode checkboxes, context length param, unload-all flow, load time, tool calling (per-tool filtered), parallel, export
-- ✅ Settings — server config, connection test, prefs with poll interval guard (≥0.5s)
-- ✅ Portrait/landscape responsive; all toolbars stack on narrow screens
-- ✅ Keyboard shortcuts overlay (`?`); number keys 1-7 always navigate
-- ✅ 212 tests passing
+- ✅ Monitor — TPS/TTFT sparklines, recent requests table (populated by Chat + Benchmark)
+- ✅ Benchmark — model SelectionList, mode checkboxes, unload-all flow, load time, tool calling, parallel, export
+- ✅ Settings — server CRUD, Set Active, connection test, prefs (poll/timeout/window/export)
+- ✅ Portrait/landscape responsive; all toolbars stack on narrow screens (< 65 cols)
+- ✅ Keyboard shortcuts overlay (`?`); number keys 1–7 always navigate
+- ✅ **212 tests passing**
+
+### New in v0.2
+- Configurable HTTP timeout per server (default 900s — large model JIT-load safe)
+- Configurable metrics ring-buffer window (default 120, adjustable 10–500)
+- Centralised `NARROW_SCREEN_THRESHOLD = 65` constant
+- Server switching UI — "Set Active" in Settings, `★` marker in server list
+- `MetricsStore.all_recent(limit=0)` fix — returns `[]` instead of crash
 
 ### Known Limitations
 - TTFT is wall-clock only (LM Studio's `stats` field is always empty)
-- `reasoning_tokens` is a streaming chunk-count proxy (no real count from `/v1/chat/completions`)
-- Download cancel is best-effort — LM Studio v1 does not expose a cancel API endpoint
-- SSE log stream not implemented (endpoint varies by server version)
-- VRAM values show "—" (LM Studio v1 API does not expose per-model VRAM usage)
-- `prompt_tokens` for streaming chat responses is `0` (LM Studio does not send `usage` in streaming chunks)
+- `reasoning_tokens` is a streaming chunk-count proxy
+- Download cancel is best-effort — no cancel API in LM Studio v1
+- SSE log stream not implemented (endpoint returns 404 on current server)
+- VRAM values show `—` (LM Studio v1 API does not expose per-model VRAM)
+- `prompt_tokens` for streaming chat responses is `0`

@@ -35,14 +35,14 @@ class MetricSample:
 
 
 class MetricsStore:
-    """Ring-buffer (deque maxlen=WINDOW) per (server_name, model_id).
+    """Ring-buffer (deque maxlen=window) per (server_name, model_id).
 
     Feeds sparklines and recent-request tables on the Live Monitor screen.
+    The window size is set at construction time from AppConfig.metrics_window.
     """
 
-    WINDOW = 120
-
-    def __init__(self) -> None:
+    def __init__(self, window: int = 120) -> None:
+        self._window = window
         self._data: dict[tuple[str, str], deque[MetricSample]] = {}
 
     def _key(self, server: str, model_id: str) -> tuple[str, str]:
@@ -51,7 +51,7 @@ class MetricsStore:
     def record(self, server: str, sample: MetricSample) -> None:
         key = self._key(server, sample.model_id)
         if key not in self._data:
-            self._data[key] = deque(maxlen=self.WINDOW)
+            self._data[key] = deque(maxlen=self._window)
         self._data[key].append(sample)
 
     def get_samples(self, server: str, model_id: str) -> list[MetricSample]:
@@ -71,8 +71,11 @@ class MetricsStore:
         """Return the newest `limit` samples across all models for a server.
 
         Iterates each per-model deque once; uses heapq.nlargest for O(n log k)
-        time where k = limit and n = total samples (bounded by WINDOW per model).
+        time where k = limit and n = total samples (bounded by window per model).
         """
+        if limit <= 0:
+            return []
+
         candidates: list[MetricSample] = []
         for (srv, _), dq in self._data.items():
             if srv == server:

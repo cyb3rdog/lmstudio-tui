@@ -6,6 +6,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
 from ...config.models import ServerConfig
+from ...constants import DEFAULT_REQUEST_TIMEOUT_S
 
 
 class ServerFormModal(ModalScreen[ServerConfig | None]):
@@ -32,6 +33,12 @@ class ServerFormModal(ModalScreen[ServerConfig | None]):
                 password=True,
                 id="inp-apikey",
             )
+            yield Label("Request timeout (seconds)")
+            yield Input(
+                value=str(ex.timeout_s) if ex else str(DEFAULT_REQUEST_TIMEOUT_S),
+                placeholder=str(DEFAULT_REQUEST_TIMEOUT_S),
+                id="inp-timeout",
+            )
             with Horizontal():
                 yield Button("Save", variant="primary", id="btn-save")
                 yield Button("Cancel", id="btn-cancel")
@@ -42,8 +49,20 @@ class ServerFormModal(ModalScreen[ServerConfig | None]):
                 name = self.query_one("#inp-name", Input).value.strip() or "default"
                 endpoint = self.query_one("#inp-endpoint", Input).value.strip() or "http://localhost:1234"
                 api_key = self.query_one("#inp-apikey", Input).value.strip()
+                timeout_raw = self.query_one("#inp-timeout", Input).value.strip()
+                try:
+                    timeout_s = float(timeout_raw) if timeout_raw else DEFAULT_REQUEST_TIMEOUT_S
+                except ValueError:
+                    timeout_s = DEFAULT_REQUEST_TIMEOUT_S
+                # Clamp.
+                timeout_s = max(10.0, min(3600.0, timeout_s))
             except Exception:
                 return
-            self.dismiss(ServerConfig(name=name, endpoint=endpoint, api_key=api_key))
+            self.dismiss(ServerConfig(
+                name=name,
+                endpoint=endpoint,
+                api_key=api_key,
+                timeout_s=timeout_s,
+            ))
         else:
             self.dismiss(None)

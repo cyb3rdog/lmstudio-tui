@@ -9,6 +9,7 @@ from textual.widgets import ContentSwitcher, Footer, Header, Tab, Tabs
 
 from .config.loader import config_exists, create_default_config, load_config, save_config
 from .config.models import AppConfig, ServerConfig
+from .constants import NARROW_SCREEN_THRESHOLD
 from .screens.benchmark_runner import BenchmarkRunner
 from .screens.chat import ChatScreen
 from .screens.dashboard import Dashboard
@@ -29,7 +30,7 @@ _NAV_ITEMS = [
     ("monitor",    "Monitor",    "4"),
     ("benchmark",  "Benchmark",  "5"),
     ("downloads",  "Downloads",  "6"),
-    ("settings",   "Settings",  "7"),
+    ("settings",   "Settings",   "7"),
 ]
 
 
@@ -55,7 +56,7 @@ class LMStudioApp(App[None]):
         self.config = config
         self.server_registry = ServerRegistry(config.servers, active_server=config.active_server)
         self.server_registry.attach_app(self)
-        self.metrics_store = MetricsStore()
+        self.metrics_store = MetricsStore(window=config.metrics_window)
         self._needs_onboarding = needs_onboarding
         self._current_screen = "dashboard"
 

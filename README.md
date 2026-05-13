@@ -11,7 +11,8 @@ A terminal-based UI for managing, monitoring, chatting with, and benchmarking [L
 | **Chat** | Streaming chat with any loaded model; history, Stop, Clear (`Ctrl+L`) |
 | **Monitor** | Live 1-second TPS & TTFT sparklines per model; recent-requests table; Pause (`P`) |
 | **Benchmark** | Multi-model, multi-mode benchmarking (throughput, tool calling, parallel); CSV/JSON/Markdown export |
-| **Settings** | Server CRUD, connection test, poll interval preference |
+| **Settings** | Server CRUD, **Set Active**, connection test; poll interval, timeout, metrics window, export dir |
+| **Downloads** | Browse/download GGUF models from HuggingFace |
 
 ### Download Manager (screen `6`)
 
@@ -65,13 +66,24 @@ active_server = "local"
 name = "local"
 endpoint = "http://localhost:1234"
 api_key = ""
+timeout_s = 900
 
 [benchmark]
 export_dir = "~/.lmstudio-tui/benchmarks"
 
 [ui]
 poll_interval_s = 3.0
+
+metrics_window = 120
 ```
+
+### Config fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `timeout_s` | `900` | Per-server HTTP request timeout in seconds. Large models (70B+ Q4+) can take 600–900s to JIT-load. Range: 10–3600. |
+| `metrics_window` | `120` | Number of metric samples retained per model in the ring buffer. Reduce on constrained hardware. Range: 10–500. |
+| `poll_interval_s` | `3.0` | Dashboard refresh interval in seconds. Minimum: 0.5. |
 
 ## Keyboard shortcuts
 
@@ -115,6 +127,23 @@ poll_interval_s = 3.0
 | `S` | Start benchmark |
 | `X` | Stop benchmark |
 
+### Settings screen
+
+| Key | Action |
+|-----|--------|
+| `+ Add` | Add a new server |
+| `Edit` | Edit the selected server |
+| `Remove` | Remove the selected server |
+| `Set Active` | Switch active server (★ shown in list) |
+| `Test Connection` | Ping the selected server |
+
+## Multi-server support
+
+1. Add servers via **Settings → + Add**
+2. Click **Set Active** to switch between them
+3. The active server is marked `★` in the server list
+4. All screens (Dashboard, Models, Chat, Monitor, Benchmark) operate on the active server
+
 ## Requirements
 
 - Python 3.11+
@@ -136,11 +165,12 @@ lmstudio_tui/
 ├── api/            # LMStudioClient (httpx), HuggingFace Hub client
 ├── benchmark/      # Engine, analysis, export
 ├── config/         # TOML models and loader
+├── constants.py    # Shared constants (thresholds, timeouts, window sizes)
 ├── screens/        # Dashboard, Models, Chat, Monitor, Benchmark, DownloadManager, Settings
 │   └── modals/     # ConfirmModal, ModelLoadModal, OnboardingModal, ServerForm, ShortcutsModal
 ├── state/          # ServerRegistry, MetricsStore
 ├── utils/          # Formatting helpers
-└── widgets/        # ModelCard, MetricPanel, ComparisonChart, …
+└── widgets/        # ModelCard, MetricPanel, …
 ```
 
 ## Known limitations

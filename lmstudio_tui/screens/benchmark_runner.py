@@ -15,6 +15,7 @@ from textual.widgets import (
 from textual.widgets.selection_list import Selection
 from textual import work
 
+from ..constants import NARROW_SCREEN_THRESHOLD
 from ..api.models import CompletionMetrics, LoadRequest
 from ..benchmark.engine import BenchmarkEngine, BenchmarkMode, BenchmarkSpec
 from ..benchmark.analysis import BenchmarkResult, analyze, detect_winners
@@ -131,7 +132,7 @@ class BenchmarkRunner(Widget):
         try:
             params = self.query_one("#params-row")
             actions = self.query_one("#model-actions")
-            if w < 70:
+            if w < NARROW_SCREEN_THRESHOLD:
                 params.add_class("stacked")
                 actions.add_class("stacked")
             else:
@@ -148,7 +149,7 @@ class BenchmarkRunner(Widget):
             table.clear()
             return
         w = self.size.width
-        if w < 60:
+        if w < NARROW_SCREEN_THRESHOLD - 5:
             table.add_columns("#", "Model", "Mode", "TPS", "TTFT", "Load ms")
         else:
             table.add_columns(
