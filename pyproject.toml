@@ -4,8 +4,20 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lmstudio-tui"
-version = "0.1.0"
-description = "Terminal UI for remote management, monitoring and benchmarking of LM Studio servers"
+version = "0.2.0"
+description = "Terminal UI for managing, monitoring, chatting with, and benchmarking LM Studio servers"
+readme = {content-type = "text/markdown", file = "README.md"}
+keywords = ["lm-studio", "llm", "tui", "terminal", "benchmark", "chat"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Terminals",
+]
 requires-python = ">=3.11"
 dependencies = [
     "textual>=0.80.0",

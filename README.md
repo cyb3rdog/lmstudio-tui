@@ -16,7 +16,7 @@ A terminal-based UI for managing, monitoring, chatting with, and benchmarking [L
 
 ### Download Manager (screen `6`)
 
-Press **6** or **D** from the Models screen to open the **Downloads** screen — a full-screen, searchable browser of GGUF models from HuggingFace. Default view shows the top 60 models by download count. Search by name, select a row, click **↓ Download** and the download starts on your LM Studio server while you watch progress.
+Press **6** to open the **Downloads** screen — a full-screen, searchable browser of GGUF models from HuggingFace. Default view shows the top 60 models by download count. Search by name, select a row, click **↓ Download** and the download starts on your LM Studio server while you watch progress.
 
 ## Installation
 
@@ -92,8 +92,6 @@ metrics_window = 120
 | Key | Action |
 |-----|--------|
 | `1` – `7` | Dashboard / Models / Chat / Monitor / Benchmark / Downloads / Settings |
-| `Ctrl+B` | Toggle sidebar |
-| `Escape` | Focus nav sidebar (second press collapses it) |
 | `?` | Show keyboard-shortcuts overlay |
 | `Ctrl+R` | Force reconnect to all servers |
 | `Ctrl+Q` | Quit |
@@ -104,7 +102,6 @@ metrics_window = 120
 |-----|--------|
 | `L` | Load selected model |
 | `U` | Unload selected model |
-| `D` | Open Download Manager (browse & download) |
 | `R` | Refresh model list |
 
 ### Monitor screen
@@ -124,8 +121,9 @@ metrics_window = 120
 
 | Key | Action |
 |-----|--------|
-| `S` | Start benchmark |
-| `X` | Stop benchmark |
+| `▶ Start` button | Start benchmark |
+| `■ Stop` button | Stop running benchmark |
+| `Ctrl+R` | Refresh model list |
 
 ### Settings screen
 

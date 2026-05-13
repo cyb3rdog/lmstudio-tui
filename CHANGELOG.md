@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Maintenance — v0.2.0 Release Prep
+
+- **Version**: Bumped `pyproject.toml` to `0.2.0`, aligned all docs (README, CHANGELOG, ROADMAP)
+- **Version export**: `lmstudio_tui.__version__` now exposed via `importlib.metadata`
+- **Dead code documented**: `ComparisonChart`, `StatusBadge`, `SSEClient` now carry `@planned` docstrings (Phase 10 / Phase 8)
+- **Navigation consistency**: `push_screen()` usage confirmed as modal-only; `action_goto()` used for screen navigation throughout
+- **README accuracy**: Removed non-existent keyboard shortcuts (`S`/`X` for benchmark, `D` for downloads, `Ctrl+B`/`Escape` for sidebar); corrected benchmark buttons to `▶ Start`/`■ Stop`
+- **docs/ removed**: Orphan `docs/` directory with empty `archive/` removed
+- **Contributing guide expanded**: Added code style tools, architecture overview, PR checklist, release process
+- **pyproject.toml enhanced**: Added `readme`, `keywords`, `classifiers` for better PyPI display
+
 ### HTTP Timeout — Configurable
 - **ServerConfig** now has a `timeout_s` field (default: 900s) instead of hardcoded 120s
 - **LMStudioClient** uses `config.timeout_s` for all HTTP requests — large models (70B+ Q4+) can now JIT-load without premature timeouts

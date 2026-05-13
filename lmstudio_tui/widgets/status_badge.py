@@ -16,7 +16,14 @@ _ICONS = {
 
 
 class StatusBadge(Widget):
-    """Small colored indicator showing a server connection state."""
+    """Server connection status badge widget (planned feature).
+
+This widget is defined but not yet integrated into any screen.
+Planned for: dashboard model cards, sidebar server status indicators.
+
+To use: import and add to a widget's compose(), bind `state` reactive attribute
+to a ConnectionState value.
+"""
 
     state: reactive[ConnectionState] = reactive(ConnectionState.DISCONNECTED)
 

@@ -72,11 +72,23 @@ class TestAppConfig:
 
 class TestCreateDefaultConfig:
     def test_returns_valid_config(self) -> None:
-        cfg = create_default_config("https://example.com", "key123")
-        assert len(cfg.servers) == 1
-        assert cfg.servers[0].endpoint == "https://example.com"
-        assert cfg.servers[0].api_key == "key123"
-        assert cfg.active_server == cfg.servers[0].name
+        # Must isolate: create_default_config calls save_config() internally,
+        # which writes to the real ~/.lmstudio-tui/config.toml. Without a temp
+        # path patch, this clobbers the user's actual config.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "config.toml"
+            import lmstudio_tui.config.loader as loader
+
+            original = loader.CONFIG_FILE
+            loader.CONFIG_FILE = path
+            try:
+                cfg = create_default_config("https://example.com", "key123")
+                assert len(cfg.servers) == 1
+                assert cfg.servers[0].endpoint == "https://example.com"
+                assert cfg.servers[0].api_key == "key123"
+                assert cfg.active_server == cfg.servers[0].name
+            finally:
+                loader.CONFIG_FILE = original
 
 
 class TestSaveAndLoadConfig:

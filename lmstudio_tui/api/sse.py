@@ -9,7 +9,16 @@ import httpx
 
 
 class SSEClient:
-    """Async SSE reader using httpx streaming. Reconnects with backoff on drop."""
+    """Server-Sent Events client for LM Studio log streaming (planned feature).
+
+This class is defined but not yet used. LM Studio's SSE log endpoint
+(/api/v1/logs) currently returns 404 on the v1 API. The client.py module
+uses an inline `_stream_raw()` method for chat completions instead.
+
+Planned for: Phase 8 — live log stream display in Monitor screen.
+When LM Studio adds a working SSE endpoint, wire this in via
+LMStudioClient.llmstudio_stream_events().
+"""
 
     def __init__(self, http: httpx.AsyncClient, endpoint: str) -> None:
         self._http = http

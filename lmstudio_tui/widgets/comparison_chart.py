@@ -19,7 +19,13 @@ class ChartRow:
 
 
 class ComparisonChart(Widget):
-    """Horizontal ASCII bar chart comparing benchmark results across models."""
+    """Widget for rendering benchmark comparison charts (planned feature).
+
+This widget is defined but not yet integrated into any screen.
+Planned for: benchmark runner comparison view (Phase 9 / Bench-adv).
+
+To use: import and add to a screen's compose(), wire up `rows` reactive attribute.
+"""
 
     rows: reactive[list[ChartRow]] = reactive(list)
 
