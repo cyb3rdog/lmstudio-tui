@@ -45,7 +45,19 @@ class ChatScreen(Widget):
             id="empty-state",
         )
         with Horizontal(id="chat-log-container"):
-            yield RichLog(id="chat-log", markup=True, highlight=False, wrap=True, max_lines=500)
+            yield RichLog(
+                id="chat-log",
+                markup=True,
+                highlight=False,
+                wrap=True,
+                max_lines=500,
+                # min_width=1 overrides the default 78 to allow wrapping at
+                # narrow terminal widths (e.g. 60 cols on portrait screens).
+                # Without this, RichLog forces virtual_width >= 78, causing a
+                # horizontal scrollbar even with wrap=True — a known interaction
+                # between RichLog's shrink logic and its min_width floor.
+                min_width=1,
+            )
         with Horizontal(id="streaming-row", classes="-hidden"):
             yield Static("", id="streaming-label")
         with Horizontal(id="input-row"):

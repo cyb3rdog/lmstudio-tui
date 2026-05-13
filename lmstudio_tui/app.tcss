@@ -240,6 +240,7 @@ ChatScreen #chat-log {
     height: 1fr;
     min-height: 0;
     padding: 0 0 0 1;
+    overflow-x: hidden;
 }
 
 ChatScreen #streaming-row {
