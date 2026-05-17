@@ -9,7 +9,6 @@ from textual.widgets import ContentSwitcher, Footer, Header, Tab, Tabs
 
 from .config.loader import config_exists, create_default_config, load_config, save_config
 from .config.models import AppConfig, ServerConfig
-from .constants import NARROW_SCREEN_THRESHOLD
 from .screens.benchmark_runner import BenchmarkRunner
 from .screens.chat import ChatScreen
 from .screens.dashboard import Dashboard

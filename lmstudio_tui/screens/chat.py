@@ -99,6 +99,8 @@ class ChatScreen(Widget):
     @work(exclusive=True)
     async def _populate_models(self) -> None:
         client = await self.app.server_registry.wait_for_client()
+        if not client:
+            return
         models = await client.list_models()
 
         sel = self.query_one("#model-select", Select)

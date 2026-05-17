@@ -1,7 +1,7 @@
 /* ── Tabs navigation bar ──────────────────────────────────────────────────── */
 
 #nav-tabs {
-    height: 2;
+    height: 3;
     background: $primary-darken-3;
     border-bottom: solid $primary-darken-2;
     dock: top;
@@ -17,7 +17,6 @@
 #content-area {
     width: 1fr;
     height: 1fr;
-    overflow: hidden auto;
     min-height: 0;
 }
 
@@ -33,15 +32,6 @@ Footer {
 Button:focus {
     border: tall $primary;
     text-style: bold;
-}
-
-DataTable:focus {
-}
-
-Select:focus {
-}
-
-SelectionList:focus {
 }
 
 Input:focus {
@@ -148,12 +138,6 @@ ChatScreen #toolbar.stacked #model-select {
 /* Settings panels stack vertically when width < NARROW_SCREEN_THRESHOLD (65) */
 Settings #server-panel {
     min-width: 28;
-}
-
-/* LiveMonitor toolbar can become multiline when columns labeled */
-LiveMonitor #toolbar.stacked {
-    layout: vertical;
-    height: auto;
 }
 
 /* ── Utility ─────────────────────────────────────────────────────────────── */
@@ -380,8 +364,8 @@ LiveMonitor #toolbar {
 }
 
 LiveMonitor #panels-scroll {
-    height: 13;
-    min-height: 10;
+    height: 1fr;
+    min-height: 5;
 }
 
 LiveMonitor #recent-table {
