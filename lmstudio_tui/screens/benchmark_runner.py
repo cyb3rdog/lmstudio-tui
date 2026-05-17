@@ -70,6 +70,7 @@ class BenchmarkRunner(Widget):
                 yield Button("✓ All",      id="btn-sel-all",        variant="default")
                 yield Button("✗ None",     id="btn-desel-all",      variant="default")
                 yield Button("↺ Refresh",  id="btn-refresh-models", variant="default")
+            with Horizontal(id="run-actions"):
                 yield Button("▶ Start",    id="btn-start",          variant="primary")
                 yield Button("■ Stop",     id="btn-stop",           variant="error")
                 yield Button("⬇ Export",   id="btn-export",         variant="default")
@@ -136,13 +137,10 @@ class BenchmarkRunner(Widget):
         w = self.size.width
         try:
             params = self.query_one("#params-row")
-            actions = self.query_one("#model-actions")
             if w < NARROW_SCREEN_THRESHOLD:
                 params.add_class("stacked")
-                actions.add_class("stacked")
             else:
                 params.remove_class("stacked")
-                actions.remove_class("stacked")
         except Exception:
             pass
 

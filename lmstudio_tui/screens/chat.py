@@ -7,7 +7,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label, RichLog, Select, Static
+from textual.widgets import Button, Input, RichLog, Select, Static
 from textual import work
 
 from ..api.models import ChatCompletionRequest, ChatMessage
@@ -36,7 +36,6 @@ class ChatScreen(Widget):
     def compose(self) -> ComposeResult:
         with Horizontal(id="toolbar"):
             with Horizontal(id="toolbar-model-row"):
-                yield Label("Model:", id="lbl-model")
                 yield Select([], id="model-select", prompt="Select a model…")
             with Horizontal(id="toolbar-btns-row"):
                 yield Button("Clear", id="btn-clear", variant="default")
@@ -84,13 +83,10 @@ class ChatScreen(Widget):
     def _update_layout(self) -> None:
         try:
             toolbar = self.query_one("#toolbar")
-            lbl = self.query_one("#lbl-model", Label)
             if self.size.width < CHAT_TOOLBAR_THRESHOLD:
                 toolbar.add_class("stacked")
-                lbl.display = False
             else:
                 toolbar.remove_class("stacked")
-                lbl.display = True
         except Exception:
             pass
 

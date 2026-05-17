@@ -51,6 +51,10 @@ ListView:focus-within {
 
 /* ── Modals ───────────────────────────────────────────────────────────────── */
 
+ModalScreen {
+    align: center middle;
+}
+
 ModalScreen > Vertical {
     background: $surface;
     border: thick $primary;
@@ -183,9 +187,9 @@ ModelManager #toolbar {
     border-top: solid $primary-darken-3;
 }
 
-ModelManager Button {
+ModelManager #toolbar Button {
     margin: 0 1 0 0;
-    width: auto;
+    width: 1fr;
 }
 
 /* ── ChatScreen ──────────────────────────────────────────────────────────── */
@@ -207,12 +211,6 @@ ChatScreen #toolbar {
 ChatScreen #toolbar-model-row {
     height: 3;
     width: 1fr;
-}
-
-ChatScreen #toolbar-model-row Label {
-    height: 1;
-    margin: 1 1 0 0;
-    width: auto;
 }
 
 ChatScreen #model-select {
@@ -415,7 +413,7 @@ Settings #layout.stacked {
 Settings #layout.stacked #server-panel {
     width: 1fr;
     height: auto;
-    max-height: 16;
+    max-height: 18;
     border-right: none;
     border-bottom: solid $primary-darken-3;
 }
@@ -438,7 +436,7 @@ Settings #btn-row {
 
 Settings #btn-row Button {
     margin: 0 1 0 0;
-    width: auto;
+    width: 1fr;
     min-width: 0;
 }
 
@@ -451,6 +449,23 @@ Settings #set-active-row Button {
     margin: 0 1 0 0;
     width: 100%;
     min-width: 0;
+}
+
+Settings #test-row {
+    height: auto;
+    width: 1fr;
+    min-height: 3;
+}
+
+Settings #test-row Button {
+    width: auto;
+    margin: 0 1 0 0;
+}
+
+Settings #test-result {
+    width: 1fr;
+    content-align: left middle;
+    color: $text-muted;
 }
 
 Settings .pref-label {
@@ -512,7 +527,16 @@ BenchmarkRunner #model-actions {
 }
 
 BenchmarkRunner #model-actions Button {
-    width: auto;
+    width: 1fr;
+    margin: 0 1 0 0;
+}
+
+BenchmarkRunner #run-actions {
+    height: auto;
+}
+
+BenchmarkRunner #run-actions Button {
+    width: 1fr;
     margin: 0 1 0 0;
 }
 
@@ -573,11 +597,6 @@ BenchmarkRunner #params-row.stacked .param-pair Label {
 
 BenchmarkRunner #params-row.stacked .param-pair Input {
     width: 1fr;
-}
-
-BenchmarkRunner #model-actions.stacked Button {
-    width: 1fr;
-    margin: 0 0 0 0;
 }
 
 BenchmarkRunner #progress-panel {

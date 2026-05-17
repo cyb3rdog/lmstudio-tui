@@ -31,8 +31,9 @@ class Settings(Widget):
                     yield Button("Remove", id="btn-remove", variant="error")
                 with Horizontal(id="set-active-row"):
                     yield Button("Set Active", id="btn-set-active", variant="default")
-                yield Button("Test Connection", id="btn-test", variant="default")
-                yield Static("", id="test-result")
+                with Horizontal(id="test-row"):
+                    yield Button("Test Connection", id="btn-test", variant="default")
+                    yield Static("", id="test-result")
 
             # ── Right panel: preferences ─────────────────────────────────────
             with ScrollableContainer(id="prefs-panel"):

@@ -31,6 +31,35 @@ class HubModel:
         return str(k)
 
 
+_GGUF_QUANT_PREFERENCE = [
+    "q4_k_m", "q4_k_s", "q5_k_m", "q5_k_s", "q4_0", "q8_0", "q3_k_m",
+    "q2_k", "fp16", "f16",
+]
+
+
+async def list_gguf_files(repo_id: str) -> list[str]:
+    """Return GGUF filenames for a HuggingFace repo, sorted by preference.
+
+    Fetches the repo metadata and extracts .gguf siblings. Returns basenames.
+    """
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        resp = await client.get(f"{HF_API_BASE}/models/{repo_id}")
+        resp.raise_for_status()
+        data = resp.json()
+
+    siblings: list[dict] = data.get("siblings", [])
+    gguf_files = [s["rfilename"] for s in siblings if s.get("rfilename", "").endswith(".gguf")]
+
+    def _sort_key(fname: str) -> int:
+        lower = fname.lower()
+        for i, pattern in enumerate(_GGUF_QUANT_PREFERENCE):
+            if pattern in lower:
+                return i
+        return len(_GGUF_QUANT_PREFERENCE)
+
+    return sorted(gguf_files, key=_sort_key)
+
+
 async def search_hub(
     query: str,
     limit: int = 60,

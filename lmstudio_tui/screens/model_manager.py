@@ -25,16 +25,20 @@ class ModelManager(Widget):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._focused_id: str | None = None
+        self._loaded_ids: set[str] = set()
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="models-table", cursor_type="row")
         with Horizontal(id="toolbar"):
-            yield Button("Load [L]",   id="btn-load",    variant="primary")
-            yield Button("Unload [U]", id="btn-unload",  variant="default")
-            yield Button("Refresh [R]", id="btn-refresh", variant="default")
+            yield Button("↑ Load",     id="btn-load",    variant="primary")
+            yield Button("↓ Unload",   id="btn-unload",  variant="default")
+            yield Button("↺ Refresh",  id="btn-refresh", variant="default")
 
     def on_mount(self) -> None:
         self._setup_columns(self.query_one("#models-table", DataTable))
+        self.action_refresh()
+
+    def on_show(self) -> None:
         self.action_refresh()
 
     def _setup_columns(self, table: DataTable) -> None:
@@ -64,6 +68,7 @@ class ModelManager(Widget):
         try:
             client = await self.app.server_registry.wait_for_client()
             models = await client.list_models()
+            self._loaded_ids = {m.id for m in models if m.is_loaded}
             table = self.query_one("DataTable")
             table.clear()
             for m in models:
@@ -80,6 +85,9 @@ class ModelManager(Widget):
         model_id = self._focused_id
         if not model_id:
             self.app.notify("Select a model row first", severity="warning", timeout=4.0)
+            return
+        if model_id in self._loaded_ids:
+            self.notify(f"'{model_id}' is already loaded", severity="warning", timeout=4.0)
             return
         pref = self.app.config.model_prefs.get(model_id)
         result = await self.app.push_screen_wait(

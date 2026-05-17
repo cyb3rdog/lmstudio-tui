@@ -172,7 +172,8 @@ class LMStudioClient:
 
     async def load_model(self, request: LoadRequest) -> str:
         body: dict[str, Any] = {"model": request.model}
-        # LM Studio v1 rejects gpu_layers with "Unrecognized key(s)".
+        if request.gpu_layers is not None:
+            body["gpu_layers"] = request.gpu_layers
         if request.context_length and request.context_length > 0:
             body["context_length"] = request.context_length
         data = await self._post("/api/v1/models/load", body)

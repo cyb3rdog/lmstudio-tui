@@ -104,8 +104,8 @@ class TestLoadModel:
         assert instance_id == "mymodel:0"
         assert captured[0]["model"] == "mymodel"
 
-    async def test_does_not_send_gpu_layers(self):
-        """LM Studio v1 rejects gpu_layers — must never be sent."""
+    async def test_sends_gpu_layers_when_set(self):
+        """gpu_layers should be forwarded to the API when provided."""
         captured: list[dict] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
@@ -120,6 +120,25 @@ class TestLoadModel:
 
         client = make_client(httpx.MockTransport(handler))
         req = LoadRequest(model="m", gpu_layers=32)
+        await client.load_model(req)
+        assert captured[0]["gpu_layers"] == 32
+
+    async def test_omits_gpu_layers_when_none(self):
+        """gpu_layers should not be sent when not set."""
+        captured: list[dict] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured.append(json.loads(req.content))
+            return json_response({
+                "instance_id": "m:0",
+                "model": "m",
+                "type": "llm",
+                "load_time_seconds": 0.0,
+                "status": "loaded",
+            })
+
+        client = make_client(httpx.MockTransport(handler))
+        req = LoadRequest(model="m", gpu_layers=None)
         await client.load_model(req)
         assert "gpu_layers" not in captured[0]
 
