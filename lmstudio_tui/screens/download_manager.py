@@ -7,7 +7,7 @@ from textual.widget import Widget
 from textual.widgets import Button, DataTable, Input, Label, ProgressBar, Static
 from textual import work
 
-from ..api.hub import HubModel, list_gguf_files, search_hub
+from ..api.hub import HubModel, search_hub
 
 
 class DownloadManager(Widget):
@@ -164,39 +164,10 @@ class DownloadManager(Widget):
         if not client:
             self.notify("Not connected to a server", severity="warning")
             return
-
-        # LM Studio needs a full file path: "author/repo/file.gguf".
-        # If the user selected a repo ID (no .gguf), resolve to a specific file.
-        full_path = model_id
-        if not model_id.endswith(".gguf"):
-            try:
-                self.query_one("#selected-label", Static).update(
-                    f"[dim]Resolving files for [/dim]{model_id}[dim]…[/dim]"
-                )
-                files = await list_gguf_files(model_id)
-                if not files:
-                    self.notify(
-                        f"No GGUF files found in {model_id}. "
-                        "Try pasting the full author/repo/file.gguf path.",
-                        severity="warning",
-                        timeout=8.0,
-                    )
-                    return
-                chosen = files[0]
-                full_path = f"{model_id}/{chosen}"
-                self.notify(f"Selected: {chosen}", timeout=4.0)
-            except Exception as e:
-                self.notify(
-                    f"Could not list files for {model_id}: {e}",
-                    severity="error",
-                    timeout=8.0,
-                )
-                return
-
         try:
-            await client.download_model(full_path)
-            self.notify(f"Download started: {full_path}")
-            self._show_download_bar(full_path)
+            await client.download_model(model_id)
+            self.notify(f"Download started: {model_id}")
+            self._show_download_bar(model_id)
         except Exception as e:
             err_str = str(e)
             if "404" in err_str or "Not Found" in err_str:

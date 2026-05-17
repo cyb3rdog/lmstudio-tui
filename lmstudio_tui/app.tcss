@@ -504,21 +504,21 @@ BenchmarkRunner {
     min-height: 0;
 }
 
-/* Config panel: auto-height with ScrollableContainer for vertical scroll on overflow.
-   max-height is intentionally omitted — the Collapsible widget provides
-   progressive disclosure by collapsing the params section.
-   On small screens the ScrollableContainer scrolls the full config panel
-   while the results table stays visible at the bottom. */
+/* Config panel: bounded height so content that overflows can be scrolled.
+   The ScrollableContainer handles internal scrolling when models + controls
+   exceed the available space. Results table keeps its 1fr share below. */
 BenchmarkRunner #config-panel {
     height: auto;
+    max-height: 22;
     background: $surface-darken-1;
     border-bottom: solid $primary-darken-3;
     padding: 0 1;
 }
 
 BenchmarkRunner #model-list {
-    height: 6;
-    max-height: 6;
+    height: auto;
+    min-height: 5;
+    max-height: 14;
     border: solid $primary-darken-3;
 }
 
