@@ -413,7 +413,7 @@ Settings #layout.stacked {
 Settings #layout.stacked #server-panel {
     width: 1fr;
     height: auto;
-    max-height: 10;
+    max-height: 16;
     border-right: none;
     border-bottom: solid $primary-darken-3;
 }
@@ -494,14 +494,15 @@ BenchmarkRunner {
    while the results table stays visible at the bottom. */
 BenchmarkRunner #config-panel {
     height: auto;
+    max-height: 40%;
     background: $surface-darken-1;
     border-bottom: solid $primary-darken-3;
     padding: 0 1;
 }
 
 BenchmarkRunner #model-list {
-    height: 10;
-    max-height: 10;
+    height: 6;
+    max-height: 6;
     border: solid $primary-darken-3;
 }
 
@@ -516,6 +517,19 @@ BenchmarkRunner #model-actions Button {
 
 BenchmarkRunner #mode-row {
     height: auto;
+}
+
+BenchmarkRunner #mode-row.stacked {
+    layout: vertical;
+    height: auto;
+}
+
+BenchmarkRunner #mode-row.stacked Checkbox {
+    width: 1fr;
+}
+
+BenchmarkRunner #mode-row.stacked Button {
+    width: 1fr;
 }
 
 BenchmarkRunner #mode-row Checkbox {
@@ -573,9 +587,14 @@ BenchmarkRunner #params-row.stacked .param-pair Input {
     width: 1fr;
 }
 
+BenchmarkRunner #model-actions.stacked {
+    layout: vertical;
+    height: auto;
+}
+
 BenchmarkRunner #model-actions.stacked Button {
     width: 1fr;
-    margin: 0 0 0 0;
+    margin: 0;
 }
 
 BenchmarkRunner #progress-panel {
@@ -679,11 +698,10 @@ DownloadManager #btn-download {
 }
 
 DownloadManager #dl-bar {
-    height: 3;
+    height: 4;
     padding: 0 1;
     background: $surface-darken-2;
     border-top: solid $primary-darken-3;
-    align: left middle;
 }
 
 DownloadManager #dl-bar.-hidden {
@@ -737,10 +755,6 @@ ModelCard Sparkline {
 
 ModelCard ProgressBar {
     width: 1fr;
-}
-
-ModelCard #vram-row {
-    height: 1;
 }
 
 /* MetricPanel */

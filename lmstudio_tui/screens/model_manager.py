@@ -8,6 +8,7 @@ from textual import work
 
 from ..config.models import ModelPref
 from ..config.loader import save_config
+from ..constants import NARROW_SCREEN_THRESHOLD
 from ..utils.formatting import format_ctx
 from .modals.confirm_dialog import ConfirmModal
 from .modals.model_load import ModelLoadModal
@@ -36,6 +37,19 @@ class ModelManager(Widget):
     def on_mount(self) -> None:
         self._setup_columns(self.query_one("#models-table", DataTable))
         self.action_refresh()
+
+    def on_resize(self) -> None:
+        self._update_layout()
+
+    def _update_layout(self) -> None:
+        try:
+            toolbar = self.query_one("#toolbar")
+            if self.size.width < NARROW_SCREEN_THRESHOLD:
+                toolbar.add_class("stacked")
+            else:
+                toolbar.remove_class("stacked")
+        except Exception:
+            pass
 
     def _setup_columns(self, table: DataTable) -> None:
         table.add_column("St",    width=2)
