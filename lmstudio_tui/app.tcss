@@ -494,7 +494,6 @@ BenchmarkRunner {
    while the results table stays visible at the bottom. */
 BenchmarkRunner #config-panel {
     height: auto;
-    max-height: 40%;
     background: $surface-darken-1;
     border-bottom: solid $primary-darken-3;
     padding: 0 1;
@@ -517,19 +516,6 @@ BenchmarkRunner #model-actions Button {
 
 BenchmarkRunner #mode-row {
     height: auto;
-}
-
-BenchmarkRunner #mode-row.stacked {
-    layout: vertical;
-    height: auto;
-}
-
-BenchmarkRunner #mode-row.stacked Checkbox {
-    width: 1fr;
-}
-
-BenchmarkRunner #mode-row.stacked Button {
-    width: 1fr;
 }
 
 BenchmarkRunner #mode-row Checkbox {
@@ -587,14 +573,9 @@ BenchmarkRunner #params-row.stacked .param-pair Input {
     width: 1fr;
 }
 
-BenchmarkRunner #model-actions.stacked {
-    layout: vertical;
-    height: auto;
-}
-
 BenchmarkRunner #model-actions.stacked Button {
     width: 1fr;
-    margin: 0;
+    margin: 0 0 0 0;
 }
 
 BenchmarkRunner #progress-panel {

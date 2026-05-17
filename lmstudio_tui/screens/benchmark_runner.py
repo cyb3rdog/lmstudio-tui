@@ -137,18 +137,12 @@ class BenchmarkRunner(Widget):
         try:
             params = self.query_one("#params-row")
             actions = self.query_one("#model-actions")
-            mode = self.query_one("#mode-row")
-            # 6 action buttons need ~70 cols; stack below 75 to avoid clipping
-            if w < 75:
-                actions.add_class("stacked")
-            else:
-                actions.remove_class("stacked")
             if w < NARROW_SCREEN_THRESHOLD:
                 params.add_class("stacked")
-                mode.add_class("stacked")
+                actions.add_class("stacked")
             else:
                 params.remove_class("stacked")
-                mode.remove_class("stacked")
+                actions.remove_class("stacked")
         except Exception:
             pass
 

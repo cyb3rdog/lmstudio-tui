@@ -39,8 +39,8 @@ class ChatScreen(Widget):
                 yield Label("Model:", id="lbl-model")
                 yield Select([], id="model-select", prompt="Select a model…")
             with Horizontal(id="toolbar-btns-row"):
-                yield Button("Clear", id="btn-clear", variant="default")
-                yield Button("■ Stop", id="btn-stop", variant="error")
+                yield Button("✕", id="btn-clear", variant="default")
+                yield Button("■", id="btn-stop", variant="error")
         yield Static(
             "[dim]No models loaded — go to Models screen to load one.[/dim]",
             id="empty-state",

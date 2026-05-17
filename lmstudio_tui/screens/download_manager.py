@@ -48,7 +48,7 @@ class DownloadManager(Widget):
         yield DataTable(id="results-table", cursor_type="row", zebra_stripes=True)
         with Horizontal(id="action-bar"):
             yield Static("No model selected.", id="selected-label")
-            yield Button("↓ Download to LM Studio", id="btn-download", variant="primary")
+            yield Button("↓ Download", id="btn-download", variant="primary")
         with Horizontal(id="dl-bar", classes="-hidden"):
             yield Label("Downloading: ", id="dl-label")
             yield ProgressBar(id="dl-progress", total=100, show_eta=False)
