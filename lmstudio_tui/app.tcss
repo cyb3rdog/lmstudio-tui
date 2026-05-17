@@ -413,7 +413,7 @@ Settings #layout.stacked {
 Settings #layout.stacked #server-panel {
     width: 1fr;
     height: auto;
-    max-height: 18;
+    max-height: 15;
     border-right: none;
     border-bottom: solid $primary-darken-3;
 }
@@ -440,32 +440,15 @@ Settings #btn-row Button {
     min-width: 0;
 }
 
-Settings #set-active-row {
+Settings #action-row {
     height: auto;
     width: 1fr;
 }
 
-Settings #set-active-row Button {
+Settings #action-row Button {
     margin: 0 1 0 0;
-    width: 100%;
+    width: 1fr;
     min-width: 0;
-}
-
-Settings #test-row {
-    height: auto;
-    width: 1fr;
-    min-height: 3;
-}
-
-Settings #test-row Button {
-    width: auto;
-    margin: 0 1 0 0;
-}
-
-Settings #test-result {
-    width: 1fr;
-    content-align: left middle;
-    color: $text-muted;
 }
 
 Settings .pref-label {

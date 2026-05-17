@@ -58,10 +58,16 @@ class MetricsStore:
         return list(self._data.get(self._key(server, model_id), []))
 
     def get_tps_series(self, server: str, model_id: str) -> list[float]:
-        return [s.tokens_per_second for s in self.get_samples(server, model_id) if s.tokens_per_second is not None]
+        dq = self._data.get(self._key(server, model_id))
+        if not dq:
+            return []
+        return [s.tokens_per_second for s in dq if s.tokens_per_second is not None]
 
     def get_ttft_series(self, server: str, model_id: str) -> list[float]:
-        return [s.time_to_first_token_ms for s in self.get_samples(server, model_id) if s.time_to_first_token_ms is not None]
+        dq = self._data.get(self._key(server, model_id))
+        if not dq:
+            return []
+        return [s.time_to_first_token_ms for s in dq if s.time_to_first_token_ms is not None]
 
     def latest(self, server: str, model_id: str) -> MetricSample | None:
         samples = self._data.get(self._key(server, model_id))

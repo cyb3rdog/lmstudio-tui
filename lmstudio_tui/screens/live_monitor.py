@@ -94,15 +94,20 @@ class LiveMonitor(Widget):
             for model in loaded:
                 if model.id not in existing:
                     safe_id = re.sub(r"[^a-zA-Z0-9_-]", "-", model.id)
-                    panels_container.mount(MetricPanel(model.id, id=f"mp-{safe_id}"))
+                    await panels_container.mount(MetricPanel(model.id, id=f"mp-{safe_id}"))
         else:
             panels_container = self.query_one("#metric-panels", Vertical)
 
-        # Always update sparkline data (cheap reactive assignment, no DOM mutation)
+        # Only push new sparkline data when the sample count actually changed —
+        # avoids reactive allocations and Sparkline redraws during idle polling.
         for panel in panels_container.query(MetricPanel):
             mid = panel._model_id
-            panel.tps_data = store.get_tps_series(active, mid)
-            panel.ttft_data = store.get_ttft_series(active, mid)
+            tps = store.get_tps_series(active, mid)
+            ttft = store.get_ttft_series(active, mid)
+            if len(tps) != len(panel.tps_data):
+                panel.tps_data = tps
+            if len(ttft) != len(panel.ttft_data):
+                panel.ttft_data = ttft
 
         # ── Recent requests table: only rebuild when new samples exist ────────
         recent = store.all_recent(active, limit=20)

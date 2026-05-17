@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label, ListItem, ListView, Static
+from textual.widgets import Button, Input, Label, ListItem, ListView
 from textual import work
 
 from ..config.loader import save_config
@@ -29,11 +29,9 @@ class Settings(Widget):
                     yield Button("+ Add", id="btn-add",     variant="primary")
                     yield Button("Edit",  id="btn-edit",   variant="default")
                     yield Button("Remove", id="btn-remove", variant="error")
-                with Horizontal(id="set-active-row"):
+                with Horizontal(id="action-row"):
                     yield Button("Set Active", id="btn-set-active", variant="default")
-                with Horizontal(id="test-row"):
-                    yield Button("Test Connection", id="btn-test", variant="default")
-                    yield Static("", id="test-result")
+                    yield Button("Test", id="btn-test", variant="default")
 
             # ── Right panel: preferences ─────────────────────────────────────
             with ScrollableContainer(id="prefs-panel"):
@@ -189,19 +187,18 @@ class Settings(Widget):
 
     @work
     async def _test_connection(self, name: str) -> None:
-        result_label = self.query_one("#test-result", Static)
-        result_label.update("  Testing…")
+        self.notify(f"Testing '{name}'…", timeout=3.0)
         conn = self.app.server_registry.get_connection(name)
         if not conn:
-            result_label.update("  [red]Server not found[/red]")
+            self.notify("Server not found", severity="error")
             return
         try:
             from ..api.client import LMStudioClient
             async with LMStudioClient(conn.config) as client:
                 ms = await client.ping()
-            result_label.update(f"  [green]✓ Connected  {ms:.0f}ms[/green]")
+            self.notify(f"✓ Connected  {ms:.0f} ms", severity="information", timeout=6.0)
         except Exception as e:
-            result_label.update(f"  [red]✗ {e}[/red]")
+            self.notify(f"✗ {e}", severity="error", timeout=8.0)
 
     def _save_prefs(self) -> None:
         # ── Poll interval ────────────────────────────────────────────────

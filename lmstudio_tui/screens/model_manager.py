@@ -63,7 +63,7 @@ class ModelManager(Widget):
 
     # ── actions ───────────────────────────────────────────────────────────────
 
-    @work
+    @work(exclusive=True)
     async def action_refresh(self) -> None:
         try:
             client = await self.app.server_registry.wait_for_client()
