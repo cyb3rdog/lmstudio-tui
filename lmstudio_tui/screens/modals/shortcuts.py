@@ -32,7 +32,7 @@ class ShortcutsModal(ModalScreen[None]):
 [bold]Chat[/bold]
   [cyan]Enter[/cyan]    Send message
   [cyan]Ctrl+L[/cyan]   Clear conversation
-  [cyan]■[/cyan]        Abort streaming response
+  [cyan]■ Stop[/cyan]   Abort streaming response
 
 [bold]Benchmark[/bold]
   [cyan]▶ Start / ■ Stop[/cyan]  Run / abort

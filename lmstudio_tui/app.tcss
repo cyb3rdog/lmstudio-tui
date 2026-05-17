@@ -225,13 +225,15 @@ ChatScreen #toolbar-btns-row {
 }
 
 ChatScreen #btn-clear {
-    margin: 0 1;
+    margin: 0 1 0 0;
     width: auto;
+    padding: 0 1;
 }
 
 ChatScreen #btn-stop {
-    margin: 0 0;
+    margin: 0;
     width: auto;
+    padding: 0 1;
 }
 
 ChatScreen #chat-log {
