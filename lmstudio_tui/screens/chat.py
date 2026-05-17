@@ -11,7 +11,7 @@ from textual.widgets import Button, Input, Label, RichLog, Select, Static
 from textual import work
 
 from ..api.models import ChatCompletionRequest, ChatMessage
-from ..constants import NARROW_SCREEN_THRESHOLD
+from ..constants import CHAT_TOOLBAR_THRESHOLD, NARROW_SCREEN_THRESHOLD
 from ..state.metrics_store import MetricSample
 
 
@@ -85,7 +85,7 @@ class ChatScreen(Widget):
         try:
             toolbar = self.query_one("#toolbar")
             lbl = self.query_one("#lbl-model", Label)
-            if self.size.width < NARROW_SCREEN_THRESHOLD:
+            if self.size.width < CHAT_TOOLBAR_THRESHOLD:
                 toolbar.add_class("stacked")
                 lbl.display = False
             else:
@@ -99,11 +99,13 @@ class ChatScreen(Widget):
     @work(exclusive=True)
     async def _populate_models(self) -> None:
         client = await self.app.server_registry.wait_for_client()
+        models = await client.list_models()
 
         sel = self.query_one("#model-select", Select)
         empty = self.query_one("#empty-state", Static)
         log = self.query_one("#chat-log", RichLog)
 
+        loaded = [m for m in models if m.is_loaded]
         if loaded:
             sel.set_options([(m.id, m.id) for m in loaded])
             # Always reset to the first loaded model — the previous selection

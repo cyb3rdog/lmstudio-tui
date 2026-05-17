@@ -5,11 +5,11 @@ import time
 from dataclasses import dataclass, field
 
 from textual.app import ComposeResult
-from textual.containers import ScrollableContainer, Vertical
+from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import (
-    Button, Checkbox, DataTable, Input, Label, ProgressBar,
+    Button, Checkbox, Collapsible, DataTable, Input, Label, ProgressBar,
     SelectionList, Static,
 )
 from textual.widgets.selection_list import Selection
@@ -78,29 +78,34 @@ class BenchmarkRunner(Widget):
                 yield Checkbox("Tool Calling", id="chk-tool",      value=True, compact=True)
                 yield Checkbox("Parallel",    id="chk-parallel",   value=False, compact=True)
                 yield Button("Full (all)", id="btn-full-mode", variant="default", compact=True)
-            with Horizontal(id="params-row"):
-                with Horizontal(classes="param-pair"):
-                    yield Label("Samples:")
-                    yield Input("10", id="inp-samples")
-                with Horizontal(classes="param-pair"):
-                    yield Label("Warmup:")
-                    yield Input("2", id="inp-warmup")
-                with Horizontal(classes="param-pair"):
-                    yield Label("Temp:")
-                    yield Input("0.0", id="inp-temp")
-                with Horizontal(classes="param-pair"):
-                    yield Label("Max tok:")
-                    yield Input("256", id="inp-maxtok")
-                with Horizontal(classes="param-pair"):
-                    yield Label("Slots:")
-                    yield Input("4", id="inp-slots")
-                with Horizontal(classes="param-pair"):
-                    yield Label("Ctx len:")
-                    yield Input("", id="inp-ctx", placeholder="auto")
+            with Collapsible(
+                title="Parameters  ▾",
+                id="params-collapse",
+                collapsed=True,
+            ):
+                with Horizontal(id="params-row"):
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Samples:")
+                        yield Input("10", id="inp-samples")
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Warmup:")
+                        yield Input("2", id="inp-warmup")
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Temp:")
+                        yield Input("0.0", id="inp-temp")
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Max tok:")
+                        yield Input("256", id="inp-maxtok")
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Slots:")
+                        yield Input("4", id="inp-slots")
+                    with Horizontal(classes="param-pair"):
+                        yield Label("Ctx len:")
+                        yield Input("", id="inp-ctx", placeholder="auto")
 
         # Summary — always visible above results
         with Vertical(id="summary-panel"):
-            yield Label("  SUMMARY", id="summary-title")
+            yield Label("  SUMMARY", id="summary-title", classes="summary-title")
             yield Static("No results yet.", id="summary-content")
 
         # Progress bar

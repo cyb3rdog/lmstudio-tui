@@ -8,6 +8,11 @@ from __future__ import annotations
 # Affects: BenchmarkRunner, Settings, ChatScreen, ModelManager, LiveMonitor.
 NARROW_SCREEN_THRESHOLD = 65
 
+# Chat toolbar stacking threshold. Lower than the main threshold because the
+# toolbar is narrow by design — it only needs its own stacking transition
+# when cols are too tight for the model-select + Send button in one row.
+CHAT_TOOLBAR_THRESHOLD = 55
+
 # ── HTTP / API ────────────────────────────────────────────────────────────────
 
 # Default timeout for API requests (load, inference, etc.) in seconds.

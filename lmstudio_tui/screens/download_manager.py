@@ -184,6 +184,8 @@ class DownloadManager(Widget):
         self._dl_client = self.app.server_registry.active_client
         self._dl_model_id = model_id
         self._dl_cancelled = False
+        # dl-bar overlays action-bar in the same space
+        self.query_one("#action-bar").add_class("-hidden")
         dl_bar = self.query_one("#dl-bar")
         dl_bar.remove_class("-hidden")
         self.query_one("#dl-label", Label).update(f"Downloading: {model_id}  ")
@@ -232,5 +234,6 @@ class DownloadManager(Widget):
         self._dl_client = None
         try:
             self.query_one("#dl-bar").add_class("-hidden")
+            self.query_one("#action-bar").remove_class("-hidden")
         except Exception:
             pass

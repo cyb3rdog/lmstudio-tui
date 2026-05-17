@@ -61,9 +61,11 @@ class ModelManager(Widget):
 
     @work
     async def action_refresh(self) -> None:
-        client = await self.app.server_registry.wait_for_client()
+        try:
+            client = await self.app.server_registry.wait_for_client()
+            models = await client.list_models()
+            table = self.query_one("DataTable")
             table.clear()
-            col_count = len(table.columns)
             for m in models:
                 status = "●" if m.is_loaded else "○"
                 quant  = m.quantization or "—"

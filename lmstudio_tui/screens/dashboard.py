@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from textual.app import ComposeResult
-from textual.containers import ScrollableContainer, Vertical
+from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Button, Label, Static
@@ -28,7 +28,7 @@ class Dashboard(Widget):
         yield Static("[dim]No models loaded[/dim]", id="empty-placeholder")
         with Vertical(id="unloaded-panel", classes="-hidden"):
             with Horizontal(id="unloaded-row"):
-                yield Static("  Unloaded: —", id="unloaded-title")
+                yield Static("  [dim]Unloaded[/dim]", id="unloaded-title", classes="unloaded-title")
                 yield Button("→ Manage Models", id="btn-manage-models", variant="default")
             yield Static("", id="unloaded-names")
 
