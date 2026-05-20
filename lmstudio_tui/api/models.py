@@ -134,11 +134,30 @@ class UnloadRequest(BaseModel):
 
 
 class DownloadStatus(BaseModel):
+    """Download job status from /api/v1/models/download/status.
+
+    Response fields per LM Studio v1 API:
+    - job_id: present when downloading, absent when already_downloaded
+    - status: downloading | paused | completed | failed | already_downloaded
+    - total_size_bytes: total download size in bytes
+    - started_at, completed_at: ISO 8601 timestamps
+    """
     model: str = ""
     status: str = ""
     progress: float = 0.0
     bytes_downloaded: int | None = None
     bytes_total: int | None = None
+    # New fields from v1 API response
+    job_id: str | None = None
+    total_size_bytes: int | None = None
+
+    @property
+    def is_downloading(self) -> bool:
+        return self.status in ("downloading", "paused")
+
+    @property
+    def is_complete(self) -> bool:
+        return self.status == "completed" or self.status == "already_downloaded"
 
 
 class ChatMessage(BaseModel):

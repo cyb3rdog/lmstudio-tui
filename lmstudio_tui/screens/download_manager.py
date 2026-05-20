@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
@@ -52,7 +53,7 @@ class DownloadManager(Widget):
         with Horizontal(id="dl-bar", classes="-hidden"):
             yield Label("Downloading: ", id="dl-label")
             yield ProgressBar(id="dl-progress", total=100, show_eta=False)
-            yield Button("✕ Cancel", id="btn-dl-cancel", variant="error")
+            yield Button("✕", id="btn-dl-cancel", variant="error")
 
     def on_mount(self) -> None:
         table = self.query_one("#results-table", DataTable)
@@ -165,9 +166,11 @@ class DownloadManager(Widget):
             self.notify("Not connected to a server", severity="warning")
             return
         try:
-            await client.download_model(model_id)
+            response = await client.download_model(model_id)
             self.notify(f"Download started: {model_id}")
             self._show_download_bar(model_id)
+            # Small delay before first poll to let download initialize
+            await asyncio.sleep(1.0)
         except Exception as e:
             err_str = str(e)
             if "404" in err_str or "Not Found" in err_str:
@@ -188,7 +191,9 @@ class DownloadManager(Widget):
         self.query_one("#action-bar").add_class("-hidden")
         dl_bar = self.query_one("#dl-bar")
         dl_bar.remove_class("-hidden")
-        self.query_one("#dl-label", Label).update(f"Downloading: {model_id}  ")
+        # Truncate long model IDs for narrow screens
+        display_name = model_id if len(model_id) <= 30 else model_id[:27] + "..."
+        self.query_one("#dl-label", Label).update(f"Downloading: {display_name}  ")
         self.query_one("#dl-progress", ProgressBar).update(progress=0)
         if self._dl_timer:
             self._dl_timer.stop()
@@ -215,17 +220,25 @@ class DownloadManager(Widget):
         if self._dl_cancelled:
             return
         if not status:
-            self._hide_download_bar()
-            return
-        name = status.model or self._dl_model_id
-        self.query_one("#dl-label", Label).update(f"Downloading: {name}  ")
-        self.query_one("#dl-progress", ProgressBar).update(progress=int(status.progress * 100))
-        if status.status == "complete":
-            self._hide_download_bar()
-            self.notify(f"Downloaded {name}", severity="information")
-        elif status.status == "error":
-            self._hide_download_bar()
-            self.notify(f"Download failed: {name}", severity="error")
+            # No active download - could be completed or not started yet
+            # Give it more time before hiding
+            pass
+        else:
+            name = status.model or self._dl_model_id
+            # Truncate long model names for narrow screens
+            display_name = name if len(name) <= 30 else name[:27] + "..."
+            self.query_one("#dl-label", Label).update(f"Downloading: {display_name}  ")
+            self.query_one("#dl-progress", ProgressBar).update(progress=int(status.progress * 100))
+            # Handle new status values from v1 API
+            if status.is_complete:
+                self._hide_download_bar()
+                self.notify(f"Downloaded {name}", severity="information")
+            elif status.status == "failed":
+                self._hide_download_bar()
+                self.notify(f"Download failed: {name}", severity="error")
+            elif status.status == "paused":
+                # Download paused (e.g., network issue) - keep polling
+                pass
 
     def _hide_download_bar(self) -> None:
         if self._dl_timer:

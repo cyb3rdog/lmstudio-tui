@@ -182,8 +182,20 @@ class LMStudioClient:
     async def unload_model(self, instance_id: str) -> None:
         await self._post("/api/v1/models/unload", UnloadRequest(instance_id=instance_id).model_dump())
 
-    async def download_model(self, model_id: str) -> None:
-        await self._post("/api/v1/models/download", {"model": model_id})
+    async def download_model(self, model_id: str) -> dict:
+        """Start downloading a model.
+
+        Accepts:
+        - LM Studio catalog IDs (e.g., "ibm/granite-4-micro")
+        - Full HuggingFace URLs (e.g., "https://huggingface.co/lmstudio-community/llama-3-8b")
+        - Raw HuggingFace repo IDs (e.g., "lmstudio-community/llama-3-8b") - converted to URL
+
+        Returns the download job response with status info.
+        """
+        # Convert raw repo ID to full HF URL if needed
+        if model_id and "/" in model_id and not model_id.startswith("http"):
+            model_id = f"https://huggingface.co/{model_id}"
+        return await self._post("/api/v1/models/download", {"model": model_id})
 
     async def get_download_status(self) -> DownloadStatus | None:
         try:
